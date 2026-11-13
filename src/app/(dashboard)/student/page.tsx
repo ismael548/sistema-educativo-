@@ -18,7 +18,7 @@ export default function StudentDashboardPage() {
   const stats = [
     { title: 'Cursos Activos', value: '3', icon: PlayCircle, change: '+1 este mes' },
     { title: 'Progreso Promedio', value: '78%', icon: TrendingUp, change: '+12% esta semana' },
-    { title: 'Horas Completadas', value: '42.5h', icon: Clock, change: 'Meta mensual 85%' },
+    { title: 'Horas Completadas', value: '42.5h', icon: Clock, change: 'Meta mensual 85%-prueba' },
     { title: 'Certificados Listos', value: '2', icon: Award, change: '1 en evaluación' },
   ];
 
