@@ -38,7 +38,7 @@ export function Sidebar({ userRole = 'student' }: SidebarProps) {
         </div>
         <div>
           <span className="font-bold text-white text-base tracking-wide flex items-center gap-1.5">
-            AETHER <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-mono">LMS</span>
+            AETHER-prueba <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-mono">LMS</span>
           </span>
           <p className="text-[10px] text-gray-500 uppercase font-mono tracking-wider">Enterprise Edu</p>
         </div>
