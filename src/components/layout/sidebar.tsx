@@ -32,7 +32,7 @@ export function Sidebar({ userRole = 'student' }: SidebarProps) {
   return (
     <aside className="w-64 bg-[#0d0f12] border-r border-[#232a35] flex flex-col h-screen select-none">
       {/* Brand Header */}
-      <div className="h-16 flex items-center px-6 gap-3 border-b border-[#232a35]">
+      <div className="h-16 flex items-center px-6 gap-3 border-b border-[#232a35]" onclick="location.href='/'">
         <div className="w-9 h-9 rounded-lg bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
           <GraduationCap className="w-5 h-5" />
         </div>
