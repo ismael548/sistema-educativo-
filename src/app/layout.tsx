@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Aether LMS - Plataforma Educativa de Alto Rendimiento -prueba',
+  title: 'Aether LMS - Plataforma Educativa de Alto Rendimiento -prueba-2',
   description: 'Arquitectura moderna para educación en línea, streaming WebRTC y tiempo real.',
 };
 
