@@ -32,3 +32,33 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #374151;
 }
+
+/* Aurora boreal sutil acelerada por GPU */
+@keyframes floatSlow {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(32px, -24px, 0) scale(1.06);
+  }
+  100% {
+    transform: translate3d(-24px, 28px, 0) scale(0.96);
+  }
+}
+
+.animate-float-slow {
+  animation: floatSlow 16s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.animate-float-slow-reverse {
+  animation: floatSlow 18s ease-in-out infinite alternate-reverse;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float-slow,
+  .animate-float-slow-reverse {
+    animation: none;
+  }
+}

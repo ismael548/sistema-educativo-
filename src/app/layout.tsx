@@ -1,9 +1,22 @@
-import type { Metadata } from 'next';
-import './globals.css';
+import type { Metadata, Viewport } from "next";
+import "./globals.css";
+import { RoleProvider } from "@/components/providers/role-provider";
 
 export const metadata: Metadata = {
-  title: 'Aether LMS - Plataforma Educativa de Alto Rendimiento -prueba-2',
-  description: 'Arquitectura moderna para educación en línea, streaming WebRTC y tiempo real.',
+  title: "Noxius LM - Plataforma de Aprendizaje Práctico",
+  description: "Accede a lecciones en video, sesiones en vivo con pantalla compartida, guías descargables y entrega de proyectos.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Noxius LM",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0d0f12",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({
@@ -14,7 +27,7 @@ export default function RootLayout({
   return (
     <html lang="es" className="dark">
       <body className="bg-[#0d0f12] text-gray-100 min-h-screen antialiased selection:bg-indigo-500 selection:text-white">
-        {children}
+        <RoleProvider>{children}</RoleProvider>
       </body>
     </html>
   );

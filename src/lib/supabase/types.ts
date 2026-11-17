@@ -106,3 +106,47 @@ export interface StudentSubmission {
   grade?: number | null;
   created_at: string;
 }
+
+// ========================================================
+// Esquema actualizado: lessons, materials, lesson_messages
+// ========================================================
+
+export interface LessonItem {
+  id: string;
+  title: string;
+  description: string | null;
+  video_url: string;
+  module_name: string;
+  order_index: number;
+  created_at: string;
+}
+
+export interface MaterialItem {
+  id: string;
+  lesson_id: string | null;
+  title: string;
+  file_type: string;
+  drive_url: string;
+  created_at: string;
+}
+
+export interface LessonMessage {
+  id: string;
+  lesson_id: string | null;
+  user_email: string;
+  user_name: string;
+  content: string;
+  created_at: string;
+}
+
+export interface SubmissionItem {
+  id: string;
+  student_name: string;
+  lesson_id: string | null;
+  title: string;
+  submission_url: string;
+  notes: string | null;
+  status: string;
+  feedback: string | null;
+  created_at: string;
+}

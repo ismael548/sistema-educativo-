@@ -1,31 +1,44 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, Shield, User, Loader2 } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
-import { ChatMessage } from '@/lib/supabase/types';
+import React, { useState, useEffect, useRef } from "react";
+import { Send, MessageSquare, Loader2, AlertCircle } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import type { LessonMessage } from "@/lib/supabase/types";
+import { useUserRole } from "@/components/providers/role-provider";
 
 interface LessonChatProps {
-  lessonId: string;
+  lessonId?: string | null;
   currentUser?: {
-    id: string;
+    id?: string;
     name: string;
-    role: 'student' | 'instructor' | 'admin';
+    email?: string;
+    role?: "student" | "instructor" | "admin";
     avatarUrl?: string;
   };
 }
 
 export function LessonChat({
-  lessonId,
-  currentUser = { id: 'mock-user-1', name: 'Alex Rivera', role: 'student' },
+  lessonId = null,
+  currentUser,
 }: LessonChatProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [inputText, setInputText] = useState('');
+  const { userName: contextUserName } = useUserRole();
+  const [messages, setMessages] = useState<LessonMessage[]>([]);
+  const [inputText, setInputText] = useState("");
+  const [userName, setUserName] = useState(currentUser?.name || contextUserName);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const supabase = createClient();
 
-  // Scroll to bottom whenever messages update
+  useEffect(() => {
+    if (!currentUser?.name) {
+      setUserName(contextUserName);
+    }
+  }, [contextUserName, currentUser?.name]);
+
+  const userEmail = currentUser?.email || "estudiante@noxiuslm.edu";
+  const normalizedLessonId = lessonId && lessonId.trim() ? lessonId.trim() : null;
+
   const scrollToBottom = () => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -36,137 +49,124 @@ export function LessonChat({
     scrollToBottom();
   }, [messages]);
 
-  // Load initial messages and subscribe to Supabase Realtime
   useEffect(() => {
+    const supabase = createClient();
     let isMounted = true;
+    setIsLoading(true);
+    setErrorMsg(null);
 
-    // Initial mock / fetch
     const fetchMessages = async () => {
       try {
-        const { data, error } = await supabase
-          .from('chat_messages')
-          .select('*, profile:profiles(full_name, avatar_url, role)')
-          .eq('lesson_id', lessonId)
-          .order('created_at', { ascending: true })
-          .limit(50);
+        let query = supabase
+          .from("lesson_messages")
+          .select("*")
+          .order("created_at", { ascending: true })
+          .limit(100);
 
-        if (!error && data && isMounted) {
-          setMessages(data as any);
-        } else if (isMounted) {
-          // Fallback initial sample conversation
-          setMessages([
-            {
-              id: 'init-1',
-              lesson_id: lessonId,
-              user_id: 'inst-1',
-              content: '¡Bienvenidos a la sesión! Dejen aquí sus preguntas sobre la arquitectura.',
-              is_instructor_reply: true,
-              created_at: new Date(Date.now() - 3600000).toISOString(),
-              profile: {
-                full_name: 'Dra. Elena Ramos',
-                role: 'instructor',
-                avatar_url: null,
-              },
-            },
-            {
-              id: 'init-2',
-              lesson_id: lessonId,
-              user_id: 'stud-2',
-              content: '¿El esquema soporta índices compuestos para acelerar las consultas de progreso?',
-              is_instructor_reply: false,
-              created_at: new Date(Date.now() - 1800000).toISOString(),
-              profile: {
-                full_name: 'Marcos Soto',
-                role: 'student',
-                avatar_url: null,
-              },
-            },
-          ]);
+        if (normalizedLessonId) {
+          query = query.eq("lesson_id", normalizedLessonId);
+        } else {
+          query = query.is("lesson_id", null);
+        }
+
+        const { data, error } = await query;
+
+        if (!isMounted) return;
+
+        if (error) {
+          console.error("Error cargando mensajes:", error.message);
+          setErrorMsg("No se pudo cargar el historial del chat.");
+          setMessages([]);
+        } else {
+          setMessages((data as LessonMessage[]) || []);
         }
       } catch (err) {
-        console.error('Error fetching chat messages:', err);
+        if (isMounted) {
+          console.error("Error inesperado en chat:", err);
+          setErrorMsg("Error de conexión con Supabase.");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     fetchMessages();
 
-    // Subscribe to Realtime channel
-    const channel = supabase
-      .channel(`lesson-chat:${lessonId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `lesson_id=eq.${lessonId}`,
-        },
-        async (payload) => {
-          const newMsg = payload.new as ChatMessage;
-          setMessages((prev) => {
-            // Avoid duplicate if optimistic message matches
-            if (prev.some((m) => m.id === newMsg.id)) return prev;
-            return [...prev, newMsg];
-          });
+    const channelName = normalizedLessonId
+      ? `lesson-messages:${normalizedLessonId}`
+      : "lesson-messages:live-general";
+
+    const pgFilterConfig = normalizedLessonId
+      ? {
+          event: "INSERT" as const,
+          schema: "public",
+          table: "lesson_messages",
+          filter: `lesson_id=eq.${normalizedLessonId}`,
         }
-      )
+      : {
+          event: "INSERT" as const,
+          schema: "public",
+          table: "lesson_messages",
+        };
+
+    const channel = supabase
+      .channel(channelName)
+      .on("postgres_changes", pgFilterConfig, (payload) => {
+        const incoming = payload.new as LessonMessage;
+        if (!normalizedLessonId && incoming.lesson_id !== null) {
+          return;
+        }
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === incoming.id)) return prev;
+          return [...prev, incoming];
+        });
+      })
       .subscribe();
 
     return () => {
       isMounted = false;
       supabase.removeChannel(channel);
     };
-  }, [lessonId]);
+  }, [normalizedLessonId]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || isSubmitting) return;
+    const trimmedContent = inputText.trim();
+    if (!trimmedContent || isSubmitting) return;
 
-    const messageContent = inputText.trim();
-    const tempId = `temp-${Date.now()}`;
-
-    // Optimistic Update
-    const optimisticMessage: ChatMessage = {
-      id: tempId,
-      lesson_id: lessonId,
-      user_id: currentUser.id,
-      content: messageContent,
-      is_instructor_reply: currentUser.role === 'instructor' || currentUser.role === 'admin',
-      created_at: new Date().toISOString(),
-      profile: {
-        full_name: currentUser.name,
-        role: currentUser.role,
-        avatar_url: currentUser.avatarUrl,
-      },
-    };
-
-    setMessages((prev) => [...prev, optimisticMessage]);
-    setInputText('');
+    const supabase = createClient();
+    const displayName = userName.trim() || "Estudiante";
     setIsSubmitting(true);
+    setErrorMsg(null);
 
     try {
       const { data, error } = await supabase
-        .from('chat_messages')
+        .from("lesson_messages")
         .insert({
-          lesson_id: lessonId,
-          user_id: currentUser.id,
-          content: messageContent,
-          is_instructor_reply: optimisticMessage.is_instructor_reply,
+          lesson_id: normalizedLessonId,
+          user_email: userEmail,
+          user_name: displayName,
+          content: trimmedContent,
         })
-        .select()
+        .select("*")
         .single();
 
       if (error) {
-        // Fallback: If DB table not ready or disconnected, keep optimistic in demo state
-        console.warn('Realtime chat fallback (mock mode active):', error.message);
+        console.error("Error enviando mensaje:", error.message);
+        setErrorMsg("No se pudo enviar el mensaje. Verifica tu conexión o permisos.");
       } else if (data) {
-        // Replace temp ID with actual DB record
-        setMessages((prev) =>
-          prev.map((msg) => (msg.id === tempId ? { ...msg, id: data.id } : msg))
-        );
+        const inserted = data as LessonMessage;
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === inserted.id)) return prev;
+          return [...prev, inserted];
+        });
+        setInputText("");
       }
     } catch (err) {
-      console.error('Error posting message:', err);
+      console.error("Error inesperado al enviar mensaje:", err);
+      setErrorMsg("Error al enviar el mensaje.");
     } finally {
       setIsSubmitting(false);
     }
@@ -175,58 +175,70 @@ export function LessonChat({
   return (
     <div className="flex flex-col h-full bg-[#13161c] border border-[#232a35] rounded-xl overflow-hidden">
       {/* Header */}
-      <div className="h-12 border-b border-[#232a35] px-4 flex items-center justify-between bg-[#171b22]">
+      <div className="h-12 border-b border-[#232a35] px-4 flex items-center justify-between bg-[#171b22] shrink-0">
         <div className="flex items-center gap-2">
           <MessageSquare className="w-4 h-4 text-indigo-400" />
-          <span className="text-xs font-semibold text-white tracking-wide">Foro & Chat de Lección</span>
+          <span className="text-xs font-semibold text-white tracking-wide">Chat de la Clase</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           <span className="text-[11px] font-mono text-gray-400">En Vivo</span>
         </div>
       </div>
 
-      {/* Messages Feed */}
-      <div ref={scrollRef} className="flex-1 p-4 space-y-3.5 overflow-y-auto">
-        {messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-gray-500 text-xs">
+      {/* Nombre rápido del participante */}
+      <div className="px-3 py-2 border-b border-[#232a35] bg-[#13161c] flex items-center gap-2 shrink-0">
+        <span className="text-[11px] text-gray-500 font-mono shrink-0">Tu nombre:</span>
+        <input
+          type="text"
+          value={userName}
+          onChange={(e) => setUserName(e.target.value)}
+          maxLength={60}
+          placeholder="Tu nombre"
+          className="flex-1 bg-[#1a1f26] border border-[#232a35] rounded px-2 py-1 text-[11px] text-gray-200 focus:outline-none focus:border-indigo-500"
+        />
+      </div>
+
+      {/* Mensajes */}
+      <div ref={scrollRef} className="flex-1 p-4 space-y-3.5 overflow-y-auto min-h-[240px]">
+        {isLoading ? (
+          <div className="h-full flex items-center justify-center text-gray-400 text-xs gap-2">
+            <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+            <span>Cargando mensajes...</span>
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-gray-500 text-xs text-center">
             <MessageSquare className="w-8 h-8 stroke-1 mb-2 text-gray-600" />
-            <p>No hay preguntas todavía.</p>
-            <p className="text-[11px] text-gray-600">Sé el primero en iniciar la conversación.</p>
+            <p>Aún no hay mensajes en esta clase.</p>
+            <p className="text-[11px] text-gray-600 mt-0.5">
+              Escribe tu duda o comentario para iniciar la conversación.
+            </p>
           </div>
         ) : (
           messages.map((msg) => {
-            const isMine = msg.user_id === currentUser.id;
-            const isInstructor = msg.is_instructor_reply || msg.profile?.role === 'instructor';
+            const isMine =
+              msg.user_email === userEmail && msg.user_name === (userName.trim() || "Estudiante");
 
             return (
               <div
                 key={msg.id}
-                className={`flex flex-col gap-1 ${isMine ? 'items-end' : 'items-start'}`}
+                className={`flex flex-col gap-1 ${isMine ? "items-end" : "items-start"}`}
               >
-                {/* Author Info */}
                 <div className="flex items-center gap-1.5 text-[11px] text-gray-400 px-1">
-                  <span className="font-medium text-gray-300">
-                    {msg.profile?.full_name || (isMine ? 'Tú' : 'Estudiante')}
-                  </span>
-                  {isInstructor && (
-                    <span className="flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[9px] font-mono">
-                      <Shield className="w-2.5 h-2.5" /> Instructor
-                    </span>
-                  )}
+                  <span className="font-medium text-gray-300">{msg.user_name}</span>
                   <span className="text-gray-600 font-mono text-[10px]">
-                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(msg.created_at).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </span>
                 </div>
 
-                {/* Message Bubble */}
                 <div
-                  className={`max-w-[85%] rounded-lg px-3 py-2 text-xs leading-relaxed ${
+                  className={`max-w-[85%] rounded-lg px-3 py-2 text-xs leading-relaxed break-words ${
                     isMine
-                      ? 'bg-indigo-600 text-white rounded-br-none shadow-sm'
-                      : isInstructor
-                      ? 'bg-[#1b212b] border border-indigo-500/40 text-gray-200 rounded-bl-none'
-                      : 'bg-[#1a1f26] border border-[#232a35] text-gray-200 rounded-bl-none'
+                      ? "bg-indigo-600 text-white rounded-br-none shadow-sm"
+                      : "bg-[#1a1f26] border border-[#232a35] text-gray-200 rounded-bl-none"
                   }`}
                 >
                   {msg.content}
@@ -237,15 +249,23 @@ export function LessonChat({
         )}
       </div>
 
+      {/* Error banner */}
+      {errorMsg && (
+        <div className="px-3 py-1.5 bg-rose-500/10 border-t border-rose-500/20 text-rose-400 text-[11px] flex items-center gap-1.5">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
       {/* Input Box */}
-      <form onSubmit={handleSendMessage} className="p-3 border-t border-[#232a35] bg-[#171b22]">
+      <form onSubmit={handleSendMessage} className="p-3 border-t border-[#232a35] bg-[#171b22] shrink-0">
         <div className="relative flex items-center">
           <input
             type="text"
             value={inputText}
             maxLength={1000}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder="Haz una pregunta o responde a un compañero..."
+            placeholder="Escribe un mensaje para la clase..."
             className="w-full bg-[#13161c] border border-[#232a35] rounded-lg pl-3 pr-10 py-2 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors"
           />
           <button
@@ -254,7 +274,11 @@ export function LessonChat({
             className="absolute right-1.5 p-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 disabled:hover:bg-indigo-600 transition-colors"
             title="Enviar mensaje"
           >
-            {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+            {isSubmitting ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Send className="w-3.5 h-3.5" />
+            )}
           </button>
         </div>
       </form>

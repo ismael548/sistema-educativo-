@@ -1,342 +1,722 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from "react";
 import {
-  UploadCloud,
   FileText,
   Download,
-  CheckCircle,
+  ExternalLink,
+  CheckCircle2,
   AlertCircle,
-  FileCode,
-  FileArchive,
-  Image as ImageIcon,
-  Trash2,
+  Link2,
+  Loader2,
+  BookOpen,
+  Send,
   Clock,
-  Loader2
-} from 'lucide-react';
-import { validateFile, MAX_FILE_SIZE_SUBMISSIONS } from '@/lib/security/file-validation';
-import { createClient } from '@/lib/supabase/client';
-
-interface ResourceItem {
-  id: string;
-  name: string;
-  size: string;
-  type: 'pdf' | 'zip' | 'image' | 'code';
-  uploadedAt: string;
-  downloadUrl: string;
-}
+  MessageSquareText,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import type { LessonItem, MaterialItem, SubmissionItem } from "@/lib/supabase/types";
+import { getDriveLinks, isValidHttpUrl } from "@/utils/driveHelpers";
+import { useUserRole } from "@/components/providers/role-provider";
 
 interface FileHubProps {
-  lessonId: string;
-  courseTitle?: string;
-  studentId?: string;
+  lessonId?: string;
 }
 
-export function FileHub({
-  lessonId,
-  courseTitle = 'Arquitectura de Software y Sistemas Distribuidos',
-  studentId = 'student-uuid-1',
-}: FileHubProps) {
-  const supabase = createClient();
+type MaterialWithLesson = MaterialItem & {
+  lessons?: { title: string } | null;
+};
 
-  // Mock materials available for download
-  const [materials] = useState<ResourceItem[]>([
-    {
-      id: 'res-1',
-      name: 'Guia-Arquitectura-Clean-Hexagonal.pdf',
-      size: '4.2 MB',
-      type: 'pdf',
-      uploadedAt: 'Hace 2 días',
-      downloadUrl: '#',
-    },
-    {
-      id: 'res-2',
-      name: 'Diagramas-Supabase-RLS-Model.png',
-      size: '1.8 MB',
-      type: 'image',
-      uploadedAt: 'Ayer',
-      downloadUrl: '#',
-    },
-    {
-      id: 'res-3',
-      name: 'Starter-Kit-Nextjs14-Supabase.zip',
-      size: '12.4 MB',
-      type: 'zip',
-      uploadedAt: 'Hoy',
-      downloadUrl: '#',
-    },
-  ]);
+type SubmissionWithLesson = SubmissionItem & {
+  lessons?: { title: string } | null;
+};
 
-  // Student submissions state
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [comment, setComment] = useState('');
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
+const MATERIAL_TYPES = [
+  "Google Doc / Word",
+  "PDF",
+  "Google Colab / Código",
+  "Hoja de Cálculo (Excel/Sheets)",
+  "Presentación",
+  "Carpeta / ZIP",
+  "Otro Enlace",
+] as const;
 
-  // Delivered submissions list
-  const [submissions, setSubmissions] = useState([
-    {
-      id: 'sub-1',
-      name: 'Entrega_Modulo1_AlexRivera.pdf',
-      size: '3.1 MB',
-      submittedAt: 'Ayer a las 18:30',
-      grade: '9.5 / 10',
-      feedback: 'Excelente modelado de entidades y políticas RLS.',
-    },
-  ]);
+export function FileHub({ lessonId }: FileHubProps) {
+  const { userName: contextUserName } = useUserRole();
+  const [hubTab, setHubTab] = useState<"materials" | "submissions">("materials");
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setStatusMessage(null);
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const [lessons, setLessons] = useState<LessonItem[]>([]);
+  const [materials, setMaterials] = useState<MaterialWithLesson[]>([]);
+  const [submissions, setSubmissions] = useState<SubmissionWithLesson[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-    // Validate security rules
-    const validation = validateFile(file, MAX_FILE_SIZE_SUBMISSIONS);
-    if (!validation.valid) {
-      setStatusMessage({ type: 'error', text: validation.error || 'Archivo inválido.' });
-      setSelectedFile(null);
-      return;
-    }
+  // Estados de formulario Materiales
+  const [selectedLessonId, setSelectedLessonId] = useState(
+    lessonId && lessonId !== "global-hub" ? lessonId : ""
+  );
+  const [title, setTitle] = useState("");
+  const [fileType, setFileType] = useState<string>(MATERIAL_TYPES[0]);
+  const [driveUrl, setDriveUrl] = useState("");
+  const [isSubmittingMaterial, setIsSubmittingMaterial] = useState(false);
 
-    setSelectedFile(file);
-  };
+  // Estados de formulario Entregar Práctica
+  const [studentName, setStudentName] = useState(contextUserName);
+  const [submissionLessonId, setSubmissionLessonId] = useState(
+    lessonId && lessonId !== "global-hub" ? lessonId : ""
+  );
+  const [submissionTitle, setSubmissionTitle] = useState("");
+  const [submissionUrl, setSubmissionUrl] = useState("");
+  const [submissionNotes, setSubmissionNotes] = useState("");
+  const [isSubmittingPractice, setIsSubmittingPractice] = useState(false);
 
-  const handleUploadSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedFile) return;
+  const [statusMessage, setStatusMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
-    setIsUploading(true);
-    setUploadProgress(15);
-    setStatusMessage(null);
+  useEffect(() => {
+    setStudentName(contextUserName);
+  }, [contextUserName]);
 
-    const validation = validateFile(selectedFile);
-    if (!validation.valid || !validation.sanitizedName) {
-      setStatusMessage({ type: 'error', text: validation.error || 'Archivo inválido.' });
-      setIsUploading(false);
-      setUploadProgress(null);
-      return;
-    }
-
-    const safeFileName = `${studentId}/${validation.sanitizedName}`;
+  const fetchHubData = useCallback(async () => {
+    const supabase = createClient();
+    setIsLoading(true);
 
     try {
-      // Simulate/Trigger upload to Supabase Storage
-      setUploadProgress(60);
-      const { error: storageError } = await supabase.storage
-        .from('student-submissions')
-        .upload(safeFileName, selectedFile, {
-          cacheControl: '3600',
-          upsert: false,
-        });
+      const lessonsQuery = supabase
+        .from("lessons")
+        .select("id, title, description, video_url, module_name, order_index, created_at")
+        .order("order_index", { ascending: true });
 
-      setUploadProgress(90);
+      let materialsQuery = supabase
+        .from("materials")
+        .select("id, lesson_id, title, file_type, drive_url, created_at, lessons(title)")
+        .order("created_at", { ascending: false });
 
-      // Save submission record in database
-      const newSubmissionItem = {
-        id: `sub-${Date.now()}`,
-        name: selectedFile.name,
-        size: `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB`,
-        submittedAt: 'Justo ahora',
-        grade: 'Pendiente de revisión',
-        feedback: comment || 'Sin comentarios adicionales',
-      };
+      let submissionsQuery = supabase
+        .from("submissions")
+        .select("id, student_name, lesson_id, title, submission_url, notes, status, feedback, created_at, lessons(title)")
+        .order("created_at", { ascending: false });
 
-      setSubmissions((prev) => [newSubmissionItem, ...prev]);
-      setStatusMessage({
-        type: 'success',
-        text: '¡Archivo subido exitosamente con cifrado y validación de integridad!',
-      });
-      setSelectedFile(null);
-      setComment('');
-    } catch (err: any) {
-      // Mock graceful handling
-      const fallbackItem = {
-        id: `sub-${Date.now()}`,
-        name: selectedFile.name,
-        size: `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB`,
-        submittedAt: 'Justo ahora',
-        grade: 'En revisión',
-        feedback: comment || 'Tarea recibida',
-      };
-      setSubmissions((prev) => [fallbackItem, ...prev]);
-      setStatusMessage({
-        type: 'success',
-        text: 'Entrega registrada y almacenada en Storage de forma segura.',
-      });
-      setSelectedFile(null);
-      setComment('');
+      if (lessonId && lessonId !== "global-hub") {
+        materialsQuery = materialsQuery.eq("lesson_id", lessonId);
+        submissionsQuery = submissionsQuery.eq("lesson_id", lessonId);
+      }
+
+      const [lessonsRes, materialsRes, submissionsRes] = await Promise.all([
+        lessonsQuery,
+        materialsQuery,
+        submissionsQuery,
+      ]);
+
+      if (!lessonsRes.error && lessonsRes.data) {
+        setLessons(lessonsRes.data as LessonItem[]);
+      }
+
+      if (!materialsRes.error && materialsRes.data) {
+        setMaterials(materialsRes.data as unknown as MaterialWithLesson[]);
+      }
+
+      if (!submissionsRes.error && submissionsRes.data) {
+        setSubmissions(submissionsRes.data as unknown as SubmissionWithLesson[]);
+      }
+    } catch (err) {
+      console.error("Error cargando Hub de Archivos:", err);
     } finally {
-      setIsUploading(false);
-      setUploadProgress(null);
+      setIsLoading(false);
+    }
+  }, [lessonId]);
+
+  useEffect(() => {
+    fetchHubData();
+  }, [fetchHubData]);
+
+  const handleAddMaterial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatusMessage(null);
+
+    if (!title.trim() || !driveUrl.trim()) {
+      setStatusMessage({
+        type: "error",
+        text: "Ingresa el título del documento y una URL válida.",
+      });
+      return;
+    }
+
+    if (!isValidHttpUrl(driveUrl)) {
+      setStatusMessage({
+        type: "error",
+        text: "Ingresa una URL válida que comience con https:// o http://.",
+      });
+      return;
+    }
+
+    const supabase = createClient();
+    setIsSubmittingMaterial(true);
+
+    try {
+      const { data, error } = await supabase
+        .from("materials")
+        .insert({
+          lesson_id: selectedLessonId || null,
+          title: title.trim(),
+          file_type: fileType,
+          drive_url: driveUrl.trim(),
+        })
+        .select("id, lesson_id, title, file_type, drive_url, created_at, lessons(title)")
+        .single();
+
+      if (error) {
+        setStatusMessage({ type: "error", text: `Error al guardar: ${error.message}` });
+      } else if (data) {
+        setMaterials((prev) => [data as unknown as MaterialWithLesson, ...prev]);
+        setTitle("");
+        setDriveUrl("");
+        setStatusMessage({
+          type: "success",
+          text: "Documento registrado exitosamente.",
+        });
+      }
+    } catch (err) {
+      console.error("Error agregando material:", err);
+      setStatusMessage({ type: "error", text: "Error inesperado al registrar el documento." });
+    } finally {
+      setIsSubmittingMaterial(false);
     }
   };
 
-  const getFileIcon = (type: string) => {
-    switch (type) {
-      case 'pdf':
-        return <FileText className="w-5 h-5 text-rose-400" />;
-      case 'image':
-        return <ImageIcon className="w-5 h-5 text-indigo-400" />;
-      case 'zip':
-        return <FileArchive className="w-5 h-5 text-amber-400" />;
-      default:
-        return <FileCode className="w-5 h-5 text-cyan-400" />;
+  const handleSubmitPractice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatusMessage(null);
+
+    if (!studentName.trim() || !submissionTitle.trim() || !submissionUrl.trim()) {
+      setStatusMessage({
+        type: "error",
+        text: "Completa tu nombre, el título de la práctica y la URL compartida.",
+      });
+      return;
+    }
+
+    if (!isValidHttpUrl(submissionUrl)) {
+      setStatusMessage({
+        type: "error",
+        text: "La URL del trabajo debe comenzar con https:// o http://.",
+      });
+      return;
+    }
+
+    const supabase = createClient();
+    setIsSubmittingPractice(true);
+
+    try {
+      const { data, error } = await supabase
+        .from("submissions")
+        .insert({
+          student_name: studentName.trim(),
+          lesson_id: submissionLessonId || null,
+          title: submissionTitle.trim(),
+          submission_url: submissionUrl.trim(),
+          notes: submissionNotes.trim() || null,
+          status: "Pendiente",
+        })
+        .select("id, student_name, lesson_id, title, submission_url, notes, status, feedback, created_at, lessons(title)")
+        .single();
+
+      if (error) {
+        setStatusMessage({ type: "error", text: `Error al enviar práctica: ${error.message}` });
+      } else if (data) {
+        setSubmissions((prev) => [data as unknown as SubmissionWithLesson, ...prev]);
+        setSubmissionTitle("");
+        setSubmissionUrl("");
+        setSubmissionNotes("");
+        setStatusMessage({
+          type: "success",
+          text: "¡Práctica enviada correctamente! Queda pendiente de revisión por el docente.",
+        });
+      }
+    } catch (err) {
+      console.error("Error enviando práctica:", err);
+      setStatusMessage({ type: "error", text: "Error inesperado al enviar la práctica." });
+    } finally {
+      setIsSubmittingPractice(false);
     }
   };
+
+  const canSubmitMaterial = Boolean(title.trim() && driveUrl.trim()) && !isSubmittingMaterial;
+  const canSubmitPractice =
+    Boolean(studentName.trim() && submissionTitle.trim() && submissionUrl.trim()) &&
+    !isSubmittingPractice;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6 bg-[#0d0f12] text-gray-200">
-      {/* Columna Izquierda: Recursos Descargables del Curso */}
-      <div className="flex flex-col gap-4">
-        <div className="border-b border-[#232a35] pb-3">
-          <h2 className="text-base font-semibold text-white">Materiales de la Lección</h2>
-          <p className="text-xs text-gray-400">
-            Descarga diapositivas, código fuente y guías oficiales preparadas por el docente.
-          </p>
-        </div>
+    <div className="bg-[#0d0f12] text-gray-200">
+      {/* Navegación de Pestañas del Hub */}
+      <div className="px-6 pt-4 border-b border-[#232a35] bg-[#13161c] flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            setHubTab("materials");
+            setStatusMessage(null);
+          }}
+          className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-2 ${
+            hubTab === "materials"
+              ? "border-indigo-500 text-indigo-300"
+              : "border-transparent text-gray-400 hover:text-gray-200"
+          }`}
+        >
+          <BookOpen className="w-3.5 h-3.5" />
+          <span>Materiales del Curso ({materials.length})</span>
+        </button>
 
-        <div className="space-y-3">
-          {materials.map((item) => (
-            <div
-              key={item.id}
-              className="flex items-center justify-between p-3.5 bg-[#13161c] border border-[#232a35] hover:border-indigo-500/40 rounded-xl transition-colors group"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="p-2.5 rounded-lg bg-[#1a1f26] border border-[#232a35]">
-                  {getFileIcon(item.type)}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-gray-200 truncate group-hover:text-indigo-300 transition-colors">
-                    {item.name}
-                  </p>
-                  <p className="text-[11px] text-gray-500 font-mono">
-                    {item.size} • {item.uploadedAt}
-                  </p>
-                </div>
-              </div>
-
-              <a
-                href={item.downloadUrl}
-                download
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1a1f26] hover:bg-indigo-600 text-gray-300 hover:text-white border border-[#232a35] hover:border-indigo-500 text-xs font-medium transition-all shrink-0"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Bajar</span>
-              </a>
-            </div>
-          ))}
-        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setHubTab("submissions");
+            setStatusMessage(null);
+          }}
+          className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-2 ${
+            hubTab === "submissions"
+              ? "border-indigo-500 text-indigo-300"
+              : "border-transparent text-gray-400 hover:text-gray-200"
+          }`}
+        >
+          <Send className="w-3.5 h-3.5" />
+          <span>Entregar Práctica ({submissions.length})</span>
+        </button>
       </div>
 
-      {/* Columna Derecha: Subida y Gestión de Tareas de Alumnos */}
-      <div className="flex flex-col gap-4">
-        <div className="border-b border-[#232a35] pb-3">
-          <h2 className="text-base font-semibold text-white">Subir Tarea / Proyecto</h2>
-          <p className="text-xs text-gray-400">
-            Entrega tus resoluciones en formato PDF, ZIP o capturas (máx. 50MB).
-          </p>
-        </div>
-
-        <form onSubmit={handleUploadSubmit} className="space-y-4">
-          {/* Dropzone */}
-          <div className="relative border-2 border-dashed border-[#232a35] hover:border-indigo-500/60 rounded-xl p-6 bg-[#13161c] flex flex-col items-center justify-center text-center transition-colors">
-            <UploadCloud className="w-9 h-9 text-indigo-400 mb-2 stroke-1" />
-            <p className="text-xs font-medium text-gray-200">
-              Arrastra tu archivo aquí o haz clic para explorar
-            </p>
-            <p className="text-[11px] text-gray-500 mt-1">PDF, ZIP, PNG o JPG hasta 50MB</p>
-            <input
-              type="file"
-              onChange={handleFileChange}
-              accept=".pdf,.zip,.png,.jpg,.jpeg,.mp4"
-              className="absolute inset-0 opacity-0 cursor-pointer"
-            />
-          </div>
-
-          {selectedFile && (
-            <div className="flex items-center justify-between p-2.5 rounded-lg bg-indigo-950/30 border border-indigo-500/30 text-xs">
-              <span className="font-mono text-indigo-200 truncate">{selectedFile.name}</span>
-              <span className="text-gray-400 font-mono text-[11px]">
-                {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
-              </span>
+      {/* PESTAÑA 1: MATERIALES DEL CURSO */}
+      {hubTab === "materials" && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
+          {/* Columna Izquierda: Lista de Materiales */}
+          <div className="flex flex-col gap-4">
+            <div className="border-b border-[#232a35] pb-3">
+              <h2 className="text-base font-semibold text-white">Documentos y Guías de Estudio</h2>
+              <p className="text-xs text-gray-400">
+                Abre o descarga materiales de Google Drive, Docs, Sheets, Slides, Colab y enlaces externos.
+              </p>
             </div>
-          )}
 
-          {/* Comment input */}
-          <textarea
-            rows={2}
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            placeholder="Añade una nota u opinión para el instructor sobre tu solución..."
-            className="w-full bg-[#13161c] border border-[#232a35] rounded-lg p-3 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors"
-          />
-
-          {/* Notifications */}
-          {statusMessage && (
-            <div
-              className={`flex items-center gap-2 p-3 rounded-lg text-xs ${
-                statusMessage.type === 'success'
-                  ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
-                  : 'bg-rose-500/10 border border-rose-500/20 text-rose-400'
-              }`}
-            >
-              {statusMessage.type === 'success' ? (
-                <CheckCircle className="w-4 h-4 shrink-0" />
-              ) : (
-                <AlertCircle className="w-4 h-4 shrink-0" />
-              )}
-              <span>{statusMessage.text}</span>
-            </div>
-          )}
-
-          {/* Submit button */}
-          <button
-            type="submit"
-            disabled={!selectedFile || isUploading}
-            className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white font-medium text-xs rounded-lg transition-colors flex items-center justify-center gap-2"
-          >
-            {isUploading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Subiendo con cifrado ({uploadProgress}%)...</span>
-              </>
+            {isLoading ? (
+              <div className="py-8 flex items-center gap-2 text-xs text-gray-400">
+                <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+                <span>Cargando documentos...</span>
+              </div>
+            ) : materials.length === 0 ? (
+              <div className="p-6 rounded-xl bg-[#13161c] border border-[#232a35] text-xs text-gray-500 text-center">
+                No hay documentos disponibles todavía.
+              </div>
             ) : (
-              <span>Enviar Tarea a Revisión</span>
-            )}
-          </button>
-        </form>
+              <div className="space-y-3">
+                {materials.map((item) => {
+                  const { previewUrl, downloadUrl } = getDriveLinks(item.drive_url);
+                  const lessonLabel = item.lesson_id
+                    ? item.lessons?.title || "Clase asignada"
+                    : "Recurso General";
 
-        {/* Previous Submissions List */}
-        <div className="mt-4 pt-4 border-t border-[#232a35]">
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-            Tus Entregas Anteriores
-          </h3>
-          <div className="space-y-2">
-            {submissions.map((sub) => (
-              <div
-                key={sub.id}
-                className="p-3 bg-[#13161c] border border-[#232a35] rounded-lg flex flex-col gap-1 text-xs"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-gray-200 truncate">{sub.name}</span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/20">
-                    {sub.grade}
-                  </span>
-                </div>
-                <p className="text-[11px] text-gray-500">
-                  {sub.submittedAt} • {sub.size}
-                </p>
-                {sub.feedback && (
-                  <p className="text-[11px] text-gray-400 italic bg-[#1a1f26] p-2 rounded mt-1 border border-[#232a35]">
-                    &ldquo;{sub.feedback}&rdquo;
-                  </p>
-                )}
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-[#13161c] border border-[#232a35] hover:border-indigo-500/40 rounded-xl transition-colors"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-2.5 rounded-lg bg-[#1a1f26] border border-[#232a35] text-indigo-400 shrink-0">
+                          <FileText className="w-5 h-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-gray-200 truncate">{item.title}</p>
+                          <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-gray-500">
+                            <span className="px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-mono text-[10px]">
+                              {item.file_type}
+                            </span>
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-mono border truncate max-w-[200px] ${
+                                item.lesson_id
+                                  ? "bg-[#1a1f26] text-gray-300 border-[#232a35]"
+                                  : "bg-emerald-500/10 text-emerald-300 border-emerald-500/20"
+                              }`}
+                            >
+                              {lessonLabel}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <a
+                          href={previewUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1a1f26] hover:bg-[#232a35] text-gray-200 border border-[#232a35] text-xs font-medium transition-colors"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>Abrir / Ver</span>
+                        </a>
+                        {downloadUrl && (
+                          <a
+                            href={downloadUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>Descargar</span>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
+            )}
+          </div>
+
+          {/* Columna Derecha: Agregar Documento */}
+          <div className="flex flex-col gap-4">
+            <div className="border-b border-[#232a35] pb-3">
+              <h2 className="text-base font-semibold text-white">Agregar Documento por Enlace</h2>
+              <p className="text-xs text-gray-400">
+                Vincula documentos de Google (Docs, Sheets, Slides, Drive, Colab) o cualquier enlace externo.
+              </p>
+            </div>
+
+            <form
+              onSubmit={handleAddMaterial}
+              className="space-y-4 bg-[#13161c] border border-[#232a35] rounded-xl p-5"
+            >
+              <div>
+                <label className="block text-[11px] font-mono text-gray-400 mb-1.5">
+                  Seleccionar Clase (Opcional)
+                </label>
+                <select
+                  value={selectedLessonId}
+                  onChange={(e) => setSelectedLessonId(e.target.value)}
+                  className="w-full bg-[#1a1f26] border border-[#232a35] rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="">General / Sin clase asignada</option>
+                  {lessons.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      #{l.order_index} — {l.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-mono text-gray-400 mb-1.5">
+                    Título del Documento *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Ej. Apuntes en Google Docs / Repositorio"
+                    className="w-full bg-[#1a1f26] border border-[#232a35] rounded-lg px-3 py-2 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-mono text-gray-400 mb-1.5">
+                    Tipo *
+                  </label>
+                  <select
+                    value={fileType}
+                    onChange={(e) => setFileType(e.target.value)}
+                    className="w-full bg-[#1a1f26] border border-[#232a35] rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-indigo-500"
+                  >
+                    {MATERIAL_TYPES.map((typeOption) => (
+                      <option key={typeOption} value={typeOption}>
+                        {typeOption}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono text-gray-400 mb-1.5">
+                  URL del Documento o Recurso *
+                </label>
+                <div className="relative">
+                  <Link2 className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="url"
+                    required
+                    value={driveUrl}
+                    onChange={(e) => setDriveUrl(e.target.value)}
+                    placeholder="https://docs.google.com/..., https://drive.google.com/..., https://github.com/..."
+                    className="w-full bg-[#1a1f26] border border-[#232a35] rounded-lg pl-9 pr-3 py-2 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              {statusMessage && (
+                <div
+                  className={`flex items-center gap-2 p-3 rounded-lg text-xs ${
+                    statusMessage.type === "success"
+                      ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+                      : "bg-rose-500/10 border border-rose-500/20 text-rose-400"
+                  }`}
+                >
+                  {statusMessage.type === "success" ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                  )}
+                  <span>{statusMessage.text}</span>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={!canSubmitMaterial}
+                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-medium text-xs rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                {isSubmittingMaterial ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Guardando enlace...</span>
+                  </>
+                ) : (
+                  <>
+                    <BookOpen className="w-4 h-4" />
+                    <span>Guardar Documento</span>
+                  </>
+                )}
+              </button>
+            </form>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* PESTAÑA 2: ENTREGAR PRÁCTICA (0 MB Storage - solo enlaces externos) */}
+      {hubTab === "submissions" && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
+          {/* Formulario de Entrega de Práctica */}
+          <div className="flex flex-col gap-4">
+            <div className="border-b border-[#232a35] pb-3">
+              <h2 className="text-base font-semibold text-white">Entregar Práctica o Tarea</h2>
+              <p className="text-xs text-gray-400">
+                Envía tu trabajo mediante enlace compartido de Google Colab, GitHub, Google Drive o Docs.
+              </p>
+            </div>
+
+            <form
+              onSubmit={handleSubmitPractice}
+              className="space-y-4 bg-[#13161c] border border-[#232a35] rounded-xl p-5"
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-mono text-gray-400 mb-1.5">
+                    Nombre del Estudiante *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={studentName}
+                    onChange={(e) => setStudentName(e.target.value)}
+                    placeholder="Tu nombre completo"
+                    className="w-full bg-[#1a1f26] border border-[#232a35] rounded-lg px-3 py-2 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-mono text-gray-400 mb-1.5">
+                    Clase o Módulo Asociado
+                  </label>
+                  <select
+                    value={submissionLessonId}
+                    onChange={(e) => setSubmissionLessonId(e.target.value)}
+                    className="w-full bg-[#1a1f26] border border-[#232a35] rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="">Entrega General</option>
+                    {lessons.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        #{l.order_index} — {l.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono text-gray-400 mb-1.5">
+                  Título de la Práctica *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={submissionTitle}
+                  onChange={(e) => setSubmissionTitle(e.target.value)}
+                  placeholder="Ej. Práctica 1 - Análisis en Python"
+                  className="w-full bg-[#1a1f26] border border-[#232a35] rounded-lg px-3 py-2 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono text-gray-400 mb-1.5">
+                  URL Compartida del Trabajo *
+                </label>
+                <div className="relative">
+                  <Link2 className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="url"
+                    required
+                    value={submissionUrl}
+                    onChange={(e) => setSubmissionUrl(e.target.value)}
+                    placeholder="https://colab.research.google.com/..., https://github.com/..., https://drive.google.com/..."
+                    className="w-full bg-[#1a1f26] border border-[#232a35] rounded-lg pl-9 pr-3 py-2 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono text-gray-400 mb-1.5">
+                  Comentario / Notas (Opcional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={submissionNotes}
+                  onChange={(e) => setSubmissionNotes(e.target.value)}
+                  placeholder="Agrega observaciones o dudas sobre tu entrega..."
+                  className="w-full bg-[#1a1f26] border border-[#232a35] rounded-lg p-3 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              {statusMessage && (
+                <div
+                  className={`flex items-center gap-2 p-3 rounded-lg text-xs ${
+                    statusMessage.type === "success"
+                      ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+                      : "bg-rose-500/10 border border-rose-500/20 text-rose-400"
+                  }`}
+                >
+                  {statusMessage.type === "success" ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                  )}
+                  <span>{statusMessage.text}</span>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={!canSubmitPractice}
+                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-medium text-xs rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                {isSubmittingPractice ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Enviando entrega...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>Enviar Práctica</span>
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+
+          {/* Lista de Entregas Enviadas */}
+          <div className="flex flex-col gap-4">
+            <div className="border-b border-[#232a35] pb-3">
+              <h2 className="text-base font-semibold text-white">Entregas Enviadas</h2>
+              <p className="text-xs text-gray-400">
+                Consulta el estado de revisión y la retroalimentación del docente.
+              </p>
+            </div>
+
+            {isLoading ? (
+              <div className="py-8 flex items-center gap-2 text-xs text-gray-400">
+                <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+                <span>Cargando entregas...</span>
+              </div>
+            ) : submissions.length === 0 ? (
+              <div className="p-6 rounded-xl bg-[#13161c] border border-[#232a35] text-xs text-gray-500 text-center">
+                Aún no hay entregas registradas en <code className="text-indigo-400">submissions</code>.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {submissions.map((sub) => {
+                  const isReviewed = sub.status.toLowerCase() === "revisado";
+                  const lessonLabel = sub.lesson_id
+                    ? sub.lessons?.title || "Clase asignada"
+                    : "Entrega General";
+
+                  return (
+                    <div
+                      key={sub.id}
+                      className="p-4 bg-[#13161c] border border-[#232a35] rounded-xl space-y-2.5"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h3 className="text-xs font-semibold text-white truncate">{sub.title}</h3>
+                          <p className="text-[11px] text-gray-400 mt-0.5">
+                            Por <span className="text-gray-200 font-medium">{sub.student_name}</span> •{" "}
+                            <span className="font-mono text-indigo-300">{lessonLabel}</span>
+                          </p>
+                        </div>
+
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono border shrink-0 ${
+                            isReviewed
+                              ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                              : "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                          }`}
+                        >
+                          {isReviewed ? (
+                            <CheckCircle2 className="w-3 h-3" />
+                          ) : (
+                            <Clock className="w-3 h-3" />
+                          )}
+                          <span>{sub.status}</span>
+                        </span>
+                      </div>
+
+                      {sub.notes && (
+                        <p className="text-[11px] text-gray-400 bg-[#1a1f26] px-3 py-2 rounded-lg border border-[#232a35]">
+                          {sub.notes}
+                        </p>
+                      )}
+
+                      {sub.feedback && (
+                        <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-200 flex items-start gap-2">
+                          <MessageSquareText className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                          <div>
+                            <span className="font-semibold text-emerald-300 block">
+                              Retroalimentación del docente:
+                            </span>
+                            <span>{sub.feedback}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-1 text-[11px]">
+                        <span className="text-gray-500 font-mono">
+                          {new Date(sub.created_at).toLocaleDateString()}
+                        </span>
+                        <a
+                          href={sub.submission_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 font-medium"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>Abrir enlace</span>
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

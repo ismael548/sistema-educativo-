@@ -1,7 +1,8 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { VirtualClassroom } from '@/components/live/virtual-classroom';
+import React from "react";
+import { VirtualClassroom } from "@/components/live/virtual-classroom";
+import { useUserRole } from "@/components/providers/role-provider";
 
 interface LiveRoomPageProps {
   params: {
@@ -10,15 +11,17 @@ interface LiveRoomPageProps {
 }
 
 export default function LiveRoomPage({ params }: LiveRoomPageProps) {
+  const { userName, role } = useUserRole();
+
   return (
     <div className="-m-6">
       <VirtualClassroom
-        roomName={params.roomId}
-        courseTitle="Masterclass en Vivo: Optimización PostgreSQL & Supabase"
+        roomName={params.roomId === "room-matematicas-avanzadas" ? "Noxius LM — En Vivo" : params.roomId}
+        courseTitle="Aula Virtual en Vivo — Noxius LM"
         user={{
-          name: 'Alex Rivera',
-          email: 'alex@aetherlms.io',
-          role: 'student',
+          name: userName,
+          email: role === "instructor" ? "docente@noxiuslm.edu" : "estudiante@noxiuslm.edu",
+          role,
         }}
       />
     </div>
