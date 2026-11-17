@@ -31,7 +31,7 @@ export default function RootLayout({
         <RoleProvider>{children}</RoleProvider>
  <span dangerouslySetInnerHTML={{
         __html: ' <Script data-cfasync="false" src="https://bauval.org/14/86b9a370e757125c57618694f9cc40db"></Script>'+
-          '<script async="async" data-cfasync="false" src="https://bauval.org/21/992b12391f87ad93d9696af8b8546da4"></script><div id="container-992b12391f87ad93d9696af8b8546da4"></div>'+
+          '<script async="async" data-cfasync="false" src="https://bauval.org/21/992b12391f87ad93d9696af8b8546da4"></script><div style="height:100px" id="container-992b12391f87ad93d9696af8b8546da4"></div>'+
           '<script> atOptions = "key" : "8cbb61f1a71069a95d4ab48940c8407d","format" : "iframe","height" : 60,"width" : 468,"params" : {}};</script><script src="https://bauval.org/22/8cbb61f1a71069a95d4ab48940c8407d"></script>'
       }}></span>
 
