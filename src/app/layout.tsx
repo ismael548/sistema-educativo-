@@ -31,7 +31,7 @@ export default function RootLayout({
         <RoleProvider>{children}</RoleProvider>
  <span style={{ width: '100%', maxWidth: '100%'}} dangerouslySetInnerHTML={{
         __html: ' <Script data-cfasync="false" src="https://bauval.org/14/86b9a370e757125c57618694f9cc40db"></Script>'+
-          '<script async="async" data-cfasync="false" src="https://bauval.org/21/992b12391f87ad93d9696af8b8546da4"></script><div  id="container-992b12391f87ad93d9696af8b8546da4"></div>'+'<style>span{  display: flex;          flex-wrap: wrap; gap: 10px;  box-sizing: border-box;  max-width: 100%; }span >div >div> div{flex: 1 1 25%;}</style>'}}></span>
+          '<script async="async" data-cfasync="false" src="https://bauval.org/21/992b12391f87ad93d9696af8b8546da4"></script><div  id="container-992b12391f87ad93d9696af8b8546da4"></div>'+'<style></style>'}}></span>
 
       </body>
     </html>
