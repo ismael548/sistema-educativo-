@@ -12,7 +12,7 @@ export default function DashboardLayout({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
-    <div className="flex h-screen w-full bg-[#0d0f12] overflow-hidden">
+    <div className="flex h-screen w-full bg-[#0d0f12] overflow-hidden overflow-x-hidden">
       {/* Sidebar responsivo (drawer en móvil, fijo en desktop) */}
       <Sidebar
         isOpen={isMobileMenuOpen}
@@ -20,9 +20,12 @@ export default function DashboardLayout({
       />
 
       {/* Área Principal de Contenido */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        <Topbar onMenuClick={() => setIsMobileMenuOpen(true)} />
-        <main className="flex-1 p-4 sm:p-6 bg-[#0d0f12]">{children}</main>
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden">
+        <Topbar
+          isMenuOpen={isMobileMenuOpen}
+          onMenuClick={() => setIsMobileMenuOpen((prev) => !prev)}
+        />
+        <main className="flex-1 p-4 md:p-6 bg-[#0d0f12] overflow-x-hidden">{children}</main>
       </div>
     </div>
   );

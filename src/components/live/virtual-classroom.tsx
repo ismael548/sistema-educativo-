@@ -52,7 +52,7 @@ export function VirtualClassroom({
   const [showSideChat, setShowSideChat] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isBroadcasting, setIsBroadcasting] = useState(false);
-  const [isReceivingStream, setIsReceivingStream] = useState(false);
+  const [hasRemoteStream, setHasRemoteStream] = useState(false);
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [connectedPeers, setConnectedPeers] = useState(1);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -80,10 +80,15 @@ export function VirtualClassroom({
 
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const isBroadcastingRef = useRef(false);
+  const hasRemoteStreamRef = useRef(false);
 
   useEffect(() => {
     isBroadcastingRef.current = isBroadcasting;
   }, [isBroadcasting]);
+
+  useEffect(() => {
+    hasRemoteStreamRef.current = hasRemoteStream;
+  }, [hasRemoteStream]);
 
   // Sincronizar estado de Fullscreen nativo (PC / Android)
   useEffect(() => {
@@ -163,7 +168,7 @@ export function VirtualClassroom({
 
   // Handlers de Zoom & Pan en PC
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    if (!isBroadcasting && !isReceivingStream) return;
+    if (!isBroadcasting && !hasRemoteStream) return;
     e.preventDefault();
     const delta = e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP;
     updateZoom(zoom + delta);
@@ -192,7 +197,7 @@ export function VirtualClassroom({
 
   // Handlers táctiles para móvil (pinch-to-zoom y pan con 1 dedo)
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (!isBroadcasting && !isReceivingStream) return;
+    if (!isBroadcasting && !hasRemoteStream) return;
 
     if (e.touches.length === 2) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -210,7 +215,7 @@ export function VirtualClassroom({
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (!isBroadcasting && !isReceivingStream) return;
+    if (!isBroadcasting && !hasRemoteStream) return;
 
     if (e.touches.length === 2 && pinchDistanceRef.current) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -325,13 +330,20 @@ export function VirtualClassroom({
     closeAllPeerConnections();
 
     if (channelRef.current) {
+      await channelRef.current.track({
+        peerId: peerIdRef.current,
+        userName: user.name,
+        role: user.role,
+        isPresenting: false,
+      });
+
       await channelRef.current.send({
         type: "broadcast",
         event: "broadcaster-stopped",
         payload: { broadcasterId: peerIdRef.current },
       });
     }
-  }, [closeAllPeerConnections, resetZoom]);
+  }, [closeAllPeerConnections, resetZoom, user.name, user.role]);
 
   // Inicia la captura de pantalla + audio y comienza a transmitir
   const startBroadcast = async () => {
@@ -374,15 +386,31 @@ export function VirtualClassroom({
       localStreamRef.current = combinedStream;
       isBroadcastingRef.current = true;
       setIsBroadcasting(true);
-      setIsReceivingStream(false);
+      setHasRemoteStream(false);
       resetZoom();
 
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = combinedStream;
+        localVideoRef.current.play().catch(() => {});
       }
 
       const channel = channelRef.current;
       if (channel) {
+        // Marcar isPresenting: true en Presence
+        await channel.track({
+          peerId: peerIdRef.current,
+          userName: user.name,
+          role: user.role,
+          isPresenting: true,
+        });
+
+        // Emitir evento inmediato teacher-started
+        await channel.send({
+          type: "broadcast",
+          event: "teacher-started",
+          payload: { broadcasterId: peerIdRef.current },
+        });
+
         const presenceState = channel.presenceState<{ peerId?: string }>();
         const viewerIds = new Set<string>();
 
@@ -392,12 +420,6 @@ export function VirtualClassroom({
               viewerIds.add(entry.peerId);
             }
           });
-        });
-
-        await channel.send({
-          type: "broadcast",
-          event: "broadcaster-started",
-          payload: { broadcasterId: peerIdRef.current },
         });
 
         for (const viewerId of Array.from(viewerIds)) {
@@ -427,7 +449,25 @@ export function VirtualClassroom({
     }
   }, [isBroadcasting]);
 
-  // Configurar canal Realtime 'live-classroom' y señalización WebRTC
+  // Reintento automático cada 3 segundos mientras el estudiante espera el stream
+  useEffect(() => {
+    if (isBroadcasting || hasRemoteStream) return;
+
+    const interval = setInterval(() => {
+      const channel = channelRef.current;
+      if (channel && peerIdRef.current) {
+        void channel.send({
+          type: "broadcast",
+          event: "student-ready",
+          payload: { studentId: peerIdRef.current },
+        });
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [isBroadcasting, hasRemoteStream]);
+
+  // Configurar canal Realtime 'noxius-live-room' y señalización WebRTC
   useEffect(() => {
     const supabase = createClient();
     const myPeerId =
@@ -436,17 +476,55 @@ export function VirtualClassroom({
         : `peer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     peerIdRef.current = myPeerId;
 
-    const channel = supabase.channel("live-classroom", {
+    const channel = supabase.channel("noxius-live-room", {
       config: {
         presence: { key: myPeerId },
       },
     });
     channelRef.current = channel;
 
+    const requestOfferFromTeacher = async () => {
+      if (isBroadcastingRef.current) return;
+
+      const existing = peerConnectionsRef.current.get("broadcaster");
+      if (existing) {
+        try {
+          existing.close();
+        } catch {
+          // Ignorar
+        }
+        peerConnectionsRef.current.delete("broadcaster");
+      }
+
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = null;
+      }
+      hasRemoteStreamRef.current = false;
+      setHasRemoteStream(false);
+
+      await channel.send({
+        type: "broadcast",
+        event: "student-ready",
+        payload: { studentId: peerIdRef.current },
+      });
+    };
+
     channel.on("presence", { event: "sync" }, () => {
-      const state = channel.presenceState();
+      const state = channel.presenceState<{ peerId?: string; isPresenting?: boolean }>();
       const count = Object.keys(state).length;
       setConnectedPeers(Math.max(1, count));
+
+      // Si algún otro usuario tiene isPresenting === true y el estudiante aún no recibe stream, solicitar oferta
+      if (!isBroadcastingRef.current && !hasRemoteStreamRef.current) {
+        const someonePresenting = Object.values(state).some((entries) =>
+          entries.some(
+            (entry) => entry.isPresenting === true && entry.peerId !== peerIdRef.current
+          )
+        );
+        if (someonePresenting) {
+          void requestOfferFromTeacher();
+        }
+      }
     });
 
     channel.on("broadcast", { event: "student-ready" }, async ({ payload }) => {
@@ -457,16 +535,12 @@ export function VirtualClassroom({
       }
     });
 
-    channel.on("broadcast", { event: "broadcaster-started" }, async ({ payload }) => {
+    channel.on("broadcast", { event: "teacher-started" }, async ({ payload }) => {
       const broadcasterId = payload?.broadcasterId as string | undefined;
       if (!broadcasterId || broadcasterId === peerIdRef.current || isBroadcastingRef.current) {
         return;
       }
-      await channel.send({
-        type: "broadcast",
-        event: "student-ready",
-        payload: { studentId: peerIdRef.current },
-      });
+      await requestOfferFromTeacher();
     });
 
     channel.on("broadcast", { event: "broadcaster-stopped" }, ({ payload }) => {
@@ -481,7 +555,8 @@ export function VirtualClassroom({
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = null;
       }
-      setIsReceivingStream(false);
+      hasRemoteStreamRef.current = false;
+      setHasRemoteStream(false);
       resetZoom();
     });
 
@@ -500,17 +575,17 @@ export function VirtualClassroom({
       const remoteStream = new MediaStream();
 
       pc.ontrack = (event) => {
-        if (event.streams && event.streams[0]) {
-          if (remoteVideoRef.current) {
+        if (remoteVideoRef.current) {
+          if (event.streams && event.streams[0]) {
             remoteVideoRef.current.srcObject = event.streams[0];
-          }
-        } else {
-          remoteStream.addTrack(event.track);
-          if (remoteVideoRef.current) {
+          } else {
+            remoteStream.addTrack(event.track);
             remoteVideoRef.current.srcObject = remoteStream;
           }
+          remoteVideoRef.current.play().catch(() => {});
         }
-        setIsReceivingStream(true);
+        hasRemoteStreamRef.current = true;
+        setHasRemoteStream(true);
       };
 
       pc.onicecandidate = (event) => {
@@ -533,7 +608,8 @@ export function VirtualClassroom({
           pc.connectionState === "disconnected" ||
           pc.connectionState === "closed"
         ) {
-          setIsReceivingStream(false);
+          hasRemoteStreamRef.current = false;
+          setHasRemoteStream(false);
         }
       };
 
@@ -588,6 +664,7 @@ export function VirtualClassroom({
           peerId: myPeerId,
           userName: user.name,
           role: user.role,
+          isPresenting: isBroadcastingRef.current,
         });
 
         await channel.send({
@@ -608,20 +685,20 @@ export function VirtualClassroom({
     };
   }, [closeAllPeerConnections, createBroadcasterPeerConnection, resetZoom, user.name, user.role]);
 
-  const hasActiveStream = isBroadcasting || isReceivingStream;
+  const hasActiveStream = isBroadcasting || hasRemoteStream;
   const isFullscreenActive = isNativeFullscreen || isCssFullscreen;
 
   return (
     <div
       className={
         isExpanded
-          ? "fixed inset-0 z-40 flex flex-col bg-[#0d0f12]"
-          : "flex flex-col h-[calc(100vh-4rem)] bg-[#0d0f12]"
+          ? "fixed inset-0 z-40 flex flex-col bg-[#0d0f12] overflow-hidden"
+          : "flex flex-col min-h-[calc(100vh-4rem)] lg:h-[calc(100vh-4rem)] bg-[#0d0f12]"
       }
     >
       {/* Class Header */}
-      <div className="h-14 px-4 sm:px-6 border-b border-[#232a35] bg-[#13161c] flex items-center justify-between gap-2 shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="min-h-14 py-2.5 px-3 sm:px-6 border-b border-[#232a35] bg-[#13161c] flex flex-wrap items-center justify-between gap-2 shrink-0">
+        <div className="flex items-center gap-2.5 min-w-0">
           <span
             className={`w-2.5 h-2.5 rounded-full shrink-0 ${
               hasActiveStream ? "bg-red-500 animate-pulse" : "bg-indigo-500"
@@ -629,7 +706,7 @@ export function VirtualClassroom({
           />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold text-white tracking-wide truncate">
+              <h2 className="text-xs sm:text-sm font-semibold text-white tracking-wide truncate">
                 {courseTitle}
               </h2>
               <span
@@ -641,19 +718,19 @@ export function VirtualClassroom({
               >
                 {isBroadcasting
                   ? "Transmitiendo"
-                  : isReceivingStream
+                  : hasRemoteStream
                   ? "En Vivo"
                   : "Sala WebRTC"}
               </span>
             </div>
-            <p className="text-[11px] text-gray-400 truncate">
+            <p className="text-[11px] text-gray-400 truncate hidden sm:block">
               Sala: {roomName} • Transmisión nativa WebRTC sin límite de tiempo
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 bg-[#1a1f26] border border-[#232a35] rounded-lg text-xs text-gray-300 font-mono">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1a1f26] border border-[#232a35] rounded-lg text-xs text-gray-300 font-mono">
             <Users className="w-3.5 h-3.5 text-indigo-400" />
             <span>{connectedPeers} en sala</span>
           </div>
@@ -663,7 +740,7 @@ export function VirtualClassroom({
               <button
                 type="button"
                 onClick={toggleMic}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                   isMicMuted
                     ? "bg-rose-500/15 border-rose-500/40 text-rose-300 hover:bg-rose-500/25"
                     : "bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20"
@@ -677,7 +754,7 @@ export function VirtualClassroom({
               <button
                 type="button"
                 onClick={() => void stopBroadcast()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-medium transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-medium transition-colors"
               >
                 <MonitorOff className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Detener Transmisión</span>
@@ -687,7 +764,7 @@ export function VirtualClassroom({
             <button
               type="button"
               onClick={() => void startBroadcast()}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors"
             >
               <MonitorUp className="w-3.5 h-3.5" />
               <span className="hidden xl:inline">Compartir Pantalla y Audio (Iniciar Clase)</span>
@@ -699,7 +776,7 @@ export function VirtualClassroom({
           <button
             type="button"
             onClick={() => setIsExpanded((prev) => !prev)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
               isExpanded
                 ? "bg-indigo-600/20 border-indigo-500/40 text-indigo-300"
                 : "bg-[#1a1f26] border-[#232a35] text-gray-300 hover:text-white"
@@ -707,25 +784,21 @@ export function VirtualClassroom({
             title={isExpanded ? "Restaurar vista normal" : "Expandir video al 100% de la pantalla"}
           >
             {isExpanded ? <Shrink className="w-3.5 h-3.5" /> : <Expand className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">
-              {isExpanded ? "Contraer Video" : "Expandir Video"}
-            </span>
+            <span>{isExpanded ? "Contraer" : "Expandir Video"}</span>
           </button>
 
           {!isExpanded && (
             <button
               type="button"
               onClick={() => setShowSideChat((prev) => !prev)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                 showSideChat
                   ? "bg-indigo-600/20 border-indigo-500/40 text-indigo-300"
                   : "bg-[#1a1f26] border-[#232a35] text-gray-400 hover:text-white"
               }`}
             >
-              <MessageSquare className="w-4 h-4" />
-              <span className="hidden sm:inline">
-                {showSideChat ? "Ocultar Chat" : "Mostrar Chat"}
-              </span>
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>{showSideChat ? "Ocultar Chat" : "Mostrar Chat"}</span>
             </button>
           )}
         </div>
@@ -740,7 +813,7 @@ export function VirtualClassroom({
       )}
 
       {/* Video Stage & Side Chat Panel */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden p-3 gap-3">
+      <div className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden p-3 gap-3">
         {/* Escenario principal de Video WebRTC con Pan & Zoom + Fullscreen */}
         <div
           ref={videoContainerRef}
@@ -755,7 +828,7 @@ export function VirtualClassroom({
           className={`${
             isCssFullscreen
               ? "fixed inset-0 z-50 bg-black"
-              : "flex-1 min-h-[340px] bg-[#13161c] border border-[#232a35] rounded-xl shadow-surface"
+              : "flex-1 min-h-[260px] sm:min-h-[340px] bg-[#13161c] border border-[#232a35] rounded-xl shadow-surface"
           } overflow-hidden relative flex items-center justify-center select-none touch-none ${
             zoom > 1 ? (isDragging ? "cursor-grabbing" : "cursor-grab") : ""
           }`}
@@ -801,7 +874,7 @@ export function VirtualClassroom({
               playsInline
               controls
               className={`w-full h-full object-contain bg-black ${
-                !isBroadcasting && isReceivingStream ? "block" : "hidden"
+                !isBroadcasting && hasRemoteStream ? "block" : "hidden"
               }`}
             />
           </div>
@@ -863,7 +936,7 @@ export function VirtualClassroom({
           )}
 
           {/* Pantalla de espera cuando no hay transmisión activa */}
-          {!isBroadcasting && !isReceivingStream && (
+          {!isBroadcasting && !hasRemoteStream && (
             <div className="flex flex-col items-center justify-center text-center p-8 max-w-md space-y-4">
               <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
                 <Tv className="w-8 h-8" />

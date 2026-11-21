@@ -14,7 +14,7 @@ export default function LiveRoomPage({ params }: LiveRoomPageProps) {
   const { userName, role } = useUserRole();
 
   return (
-    <div className="-m-6">
+    <div className="-m-4 md:-m-6">
       <VirtualClassroom
         roomName={params.roomId === "room-matematicas-avanzadas" ? "Noxius LM — En Vivo" : params.roomId}
         courseTitle="Aula Virtual en Vivo — Noxius LM"

@@ -46,6 +46,14 @@ export default function HomePage() {
     }
 
     setNameError(null);
+    try {
+      localStorage.setItem("noxius_student_name", trimmed);
+      localStorage.setItem("student_name", trimmed);
+      sessionStorage.setItem("noxius_student_name", trimmed);
+      sessionStorage.setItem("student_name", trimmed);
+    } catch {
+      // Ignorar errores de almacenamiento
+    }
     setUserName(trimmed);
     switchToStudent();
     router.push("/student");
@@ -141,11 +149,11 @@ export default function HomePage() {
           </p>
 
           {/* Tarjeta de Ingreso Rápido */}
-          <div className="max-w-xl mx-auto space-y-2">
+          <div className="relative z-20 max-w-xl mx-auto space-y-2">
             <form
               onSubmit={handleStudentEnter}
               noValidate
-              className="p-2 rounded-2xl bg-[#13161c]/90 border border-[#232a35] shadow-surface flex flex-col sm:flex-row gap-2"
+              className="relative z-20 w-full p-2 rounded-2xl bg-[#13161c]/90 border border-[#232a35] shadow-surface flex flex-col sm:flex-row gap-2"
             >
               <input
                 type="text"
@@ -157,11 +165,11 @@ export default function HomePage() {
                 }}
                 maxLength={40}
                 placeholder="Escribe tu nombre para comenzar..."
-                className="flex-1 bg-[#1a1f26] border border-[#232a35] focus:border-indigo-500 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none transition-colors"
+                className="w-full flex-1 bg-[#1a1f26] border border-[#232a35] focus:border-indigo-500 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none transition-colors"
               />
               <button
                 type="submit"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#4f46e5] to-[#06b6d4] hover:brightness-110 text-white font-semibold text-sm transition-all shrink-0 shadow-glow"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#4f46e5] to-[#06b6d4] hover:brightness-110 text-white font-semibold text-sm transition-all shrink-0 shadow-glow"
               >
                 <span>Entrar al Portal Estudiante</span>
                 <ArrowRight className="w-4 h-4" />
@@ -267,6 +275,5 @@ export default function HomePage() {
         </div>
       )}
     </div>
-
   );
 }

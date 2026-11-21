@@ -46,7 +46,21 @@ export default function DashboardPage() {
   } = useUserRole();
 
   useEffect(() => {
-    if (isHydrated && !hasActiveSession) {
+    if (!isHydrated) return;
+    let hasLocalSession = false;
+    try {
+      hasLocalSession = Boolean(
+        localStorage.getItem("noxius_student_name") ||
+          localStorage.getItem("student_name") ||
+          sessionStorage.getItem("noxius_student_name") ||
+          sessionStorage.getItem("student_name") ||
+          localStorage.getItem("aether_user_role") === "instructor"
+      );
+    } catch {
+      hasLocalSession = false;
+    }
+
+    if (!hasActiveSession && !hasLocalSession) {
       router.replace("/");
     }
   }, [isHydrated, hasActiveSession, router]);
@@ -58,11 +72,11 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchDashboardData = useCallback(async () => {
-    const supabase = createClient();
     setIsLoading(true);
 
     try {
-      const [lessonsRes, materialsRes, messagesRes] = await Promise.all([
+      const supabase = createClient();
+      const [lessonsResult, materialsResult, messagesResult] = await Promise.allSettled([
         supabase
           .from("lessons")
           .select("id, title, description, video_url, module_name, order_index, created_at")
@@ -72,17 +86,40 @@ export default function DashboardPage() {
         supabase.from("lesson_messages").select("id", { count: "exact", head: true }),
       ]);
 
-      if (!lessonsRes.error && lessonsRes.data) {
-        setLessons(lessonsRes.data as LessonItem[]);
+      if (
+        lessonsResult.status === "fulfilled" &&
+        !lessonsResult.value.error &&
+        Array.isArray(lessonsResult.value.data)
+      ) {
+        setLessons(lessonsResult.value.data as LessonItem[]);
+      } else {
+        setLessons([]);
       }
-      if (!materialsRes.error && typeof materialsRes.count === "number") {
-        setMaterialsCount(materialsRes.count);
+
+      if (
+        materialsResult.status === "fulfilled" &&
+        !materialsResult.value.error &&
+        typeof materialsResult.value.count === "number"
+      ) {
+        setMaterialsCount(materialsResult.value.count);
+      } else {
+        setMaterialsCount(0);
       }
-      if (!messagesRes.error && typeof messagesRes.count === "number") {
-        setMessagesCount(messagesRes.count);
+
+      if (
+        messagesResult.status === "fulfilled" &&
+        !messagesResult.value.error &&
+        typeof messagesResult.value.count === "number"
+      ) {
+        setMessagesCount(messagesResult.value.count);
+      } else {
+        setMessagesCount(0);
       }
     } catch (err) {
       console.error("Error cargando datos del Dashboard:", err);
+      setLessons([]);
+      setMaterialsCount(0);
+      setMessagesCount(0);
     } finally {
       setIsLoading(false);
     }
@@ -92,21 +129,26 @@ export default function DashboardPage() {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  // Escuchar presencia real en el canal 'live-classroom'
+  // Escuchar presencia real en el canal 'noxius-live-room' con fallback seguro
   useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase.channel("live-classroom");
+    try {
+      const supabase = createClient();
+      const channel = supabase.channel("noxius-live-room");
 
-    channel.on("presence", { event: "sync" }, () => {
-      const state = channel.presenceState();
-      setLivePeersCount(Object.keys(state).length);
-    });
+      channel.on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState();
+        setLivePeersCount(Object.keys(state).length);
+      });
 
-    channel.subscribe();
+      channel.subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    } catch (err) {
+      console.warn("No se pudo conectar a presencia de live-classroom:", err);
+      return undefined;
+    }
   }, []);
 
   const handleDeleteLesson = async (lessonId: string) => {
@@ -177,7 +219,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Métricas Reales */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-[#13161c] border border-[#232a35] rounded-xl p-5 flex items-center justify-between">
             <div>
               <span className="text-xs text-gray-400 font-medium">Clases Publicadas</span>
@@ -303,7 +345,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Tarjetas superiores con datos reales desde Supabase */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-[#13161c] border border-[#232a35] rounded-xl p-4 flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-400 font-medium">Clases Publicadas</span>
@@ -544,6 +586,5 @@ export default function DashboardPage() {
         </div>
       </div>
     </div>
- 
   );
 }

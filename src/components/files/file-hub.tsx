@@ -248,9 +248,9 @@ export function FileHub({ lessonId }: FileHubProps) {
     !isSubmittingPractice;
 
   return (
-    <div className="bg-[#0d0f12] text-gray-200">
+    <div className="bg-[#0d0f12] text-gray-200 overflow-x-hidden">
       {/* Navegación de Pestañas del Hub */}
-      <div className="px-6 pt-4 border-b border-[#232a35] bg-[#13161c] flex flex-wrap gap-2">
+      <div className="px-4 md:px-8 pt-4 border-b border-[#232a35] bg-[#13161c] flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => {
@@ -286,7 +286,7 @@ export function FileHub({ lessonId }: FileHubProps) {
 
       {/* PESTAÑA 1: MATERIALES DEL CURSO */}
       {hubTab === "materials" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4 md:p-8">
           {/* Columna Izquierda: Lista de Materiales */}
           <div className="flex flex-col gap-4">
             <div className="border-b border-[#232a35] pb-3">
@@ -492,7 +492,7 @@ export function FileHub({ lessonId }: FileHubProps) {
 
       {/* PESTAÑA 2: ENTREGAR PRÁCTICA (0 MB Storage - solo enlaces externos) */}
       {hubTab === "submissions" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4 md:p-8">
           {/* Formulario de Entrega de Práctica */}
           <div className="flex flex-col gap-4">
             <div className="border-b border-[#232a35] pb-3">

@@ -28,7 +28,9 @@ interface RoleContextValue {
 const RoleContext = createContext<RoleContextValue | undefined>(undefined);
 
 const STORAGE_ROLE_KEY = "aether_user_role";
-const STORAGE_NAME_KEY = "aether_user_name";
+const STORAGE_NAME_KEY = "noxius_student_name";
+const STORAGE_NAME_ALIAS_KEY = "student_name";
+const STORAGE_LEGACY_NAME_KEY = "aether_user_name";
 const STORAGE_LAST_LESSON_KEY = "aether_last_lesson";
 const STORAGE_VISITED_KEY = "aether_visited_lessons";
 const STORAGE_COMPLETED_KEY = "aether_completed_lessons";
@@ -50,10 +52,22 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
           setRole(savedRole);
         }
 
-        const savedName = localStorage.getItem(STORAGE_NAME_KEY);
+        const savedName =
+          localStorage.getItem(STORAGE_NAME_KEY) ||
+          localStorage.getItem(STORAGE_NAME_ALIAS_KEY) ||
+          sessionStorage.getItem(STORAGE_NAME_KEY) ||
+          sessionStorage.getItem(STORAGE_NAME_ALIAS_KEY) ||
+          localStorage.getItem(STORAGE_LEGACY_NAME_KEY);
+
         if (savedName && savedName.trim()) {
-          setUserNameState(savedName.trim());
+          const clean = savedName.trim();
+          setUserNameState(clean);
           setHasStoredName(true);
+          // Sincronizar claves unificadas en localStorage y sessionStorage
+          localStorage.setItem(STORAGE_NAME_KEY, clean);
+          localStorage.setItem(STORAGE_NAME_ALIAS_KEY, clean);
+          sessionStorage.setItem(STORAGE_NAME_KEY, clean);
+          sessionStorage.setItem(STORAGE_NAME_ALIAS_KEY, clean);
         } else {
           setHasStoredName(false);
         }
@@ -82,7 +96,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
           }
         }
       } catch {
-        // Ignorar errores de localStorage en navegación privada
+        // Ignorar errores de almacenamiento en navegación privada
       } finally {
         setIsHydrated(true);
       }
@@ -99,6 +113,10 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
           // Ignorar
         }
       }
+      if ((e.key === STORAGE_NAME_KEY || e.key === STORAGE_NAME_ALIAS_KEY) && e.newValue) {
+        setUserNameState(e.newValue.trim() || "Estudiante");
+        setHasStoredName(Boolean(e.newValue.trim()));
+      }
     };
 
     window.addEventListener("storage", handleStorageSync);
@@ -112,6 +130,9 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     try {
       if (name.trim()) {
         localStorage.setItem(STORAGE_NAME_KEY, clean);
+        localStorage.setItem(STORAGE_NAME_ALIAS_KEY, clean);
+        sessionStorage.setItem(STORAGE_NAME_KEY, clean);
+        sessionStorage.setItem(STORAGE_NAME_ALIAS_KEY, clean);
       }
     } catch {
       // Ignorar
@@ -147,7 +168,11 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     setHasStoredName(false);
     try {
       localStorage.removeItem(STORAGE_NAME_KEY);
+      localStorage.removeItem(STORAGE_NAME_ALIAS_KEY);
+      localStorage.removeItem(STORAGE_LEGACY_NAME_KEY);
       localStorage.removeItem(STORAGE_ROLE_KEY);
+      sessionStorage.removeItem(STORAGE_NAME_KEY);
+      sessionStorage.removeItem(STORAGE_NAME_ALIAS_KEY);
     } catch {
       // Ignorar
     }

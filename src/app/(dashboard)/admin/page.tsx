@@ -871,44 +871,46 @@ export default function AdminDashboardPage() {
       {/* Tab 4: Estudiantes */}
       {activeTab === "students" && (
         <div className="bg-[#13161c] border border-[#232a35] rounded-xl overflow-hidden">
-          <div className="p-4 border-b border-[#232a35] flex items-center justify-between">
+          <div className="p-4 border-b border-[#232a35] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <span className="text-xs font-semibold text-gray-300 uppercase tracking-wider font-mono">
               Comunidad de Estudiantes ({students.length})
             </span>
-            <div className="relative w-52">
+            <div className="relative w-full sm:w-52">
               <Search className="w-3.5 h-3.5 text-gray-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Filtrar por nombre..."
-                className="w-full bg-[#1a1f26] border border-[#232a35] rounded-lg pl-8 pr-3 py-1 text-xs text-gray-200 placeholder-gray-500"
+                className="w-full bg-[#1a1f26] border border-[#232a35] rounded-lg pl-8 pr-3 py-1.5 text-xs text-gray-200 placeholder-gray-500"
               />
             </div>
           </div>
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#171b22] text-gray-400 border-b border-[#232a35]">
-              <tr>
-                <th className="py-3 px-4 font-medium">Estudiante</th>
-                <th className="py-3 px-4 font-medium">Correo Electrónico</th>
-                <th className="py-3 px-4 font-medium">Cursos Activos</th>
-                <th className="py-3 px-4 font-medium">Progreso General</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#232a35] text-gray-300">
-              {students.map((s) => (
-                <tr key={s.id} className="hover:bg-[#1a1f26]/50 transition-colors">
-                  <td className="py-3 px-4 font-medium text-white flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-indigo-950 text-indigo-300 flex items-center justify-center font-bold text-[10px]">
-                      {s.name.substring(0, 2).toUpperCase()}
-                    </div>
-                    <span>{s.name}</span>
-                  </td>
-                  <td className="py-3 px-4 text-gray-400 font-mono text-[11px]">{s.email}</td>
-                  <td className="py-3 px-4 font-mono">{s.enrolledCourses}</td>
-                  <td className="py-3 px-4 font-mono text-indigo-400">{s.progress}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#171b22] text-gray-400 border-b border-[#232a35]">
+                <tr>
+                  <th className="py-3 px-4 font-medium">Estudiante</th>
+                  <th className="py-3 px-4 font-medium">Correo Electrónico</th>
+                  <th className="py-3 px-4 font-medium">Cursos Activos</th>
+                  <th className="py-3 px-4 font-medium">Progreso General</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-[#232a35] text-gray-300">
+                {students.map((s) => (
+                  <tr key={s.id} className="hover:bg-[#1a1f26]/50 transition-colors">
+                    <td className="py-3 px-4 font-medium text-white flex items-center gap-2 whitespace-nowrap">
+                      <div className="w-7 h-7 rounded-full bg-indigo-950 text-indigo-300 flex items-center justify-center font-bold text-[10px] shrink-0">
+                        {s.name.substring(0, 2).toUpperCase()}
+                      </div>
+                      <span>{s.name}</span>
+                    </td>
+                    <td className="py-3 px-4 text-gray-400 font-mono text-[11px] whitespace-nowrap">{s.email}</td>
+                    <td className="py-3 px-4 font-mono">{s.enrolledCourses}</td>
+                    <td className="py-3 px-4 font-mono text-indigo-400">{s.progress}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

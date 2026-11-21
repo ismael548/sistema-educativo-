@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import Script from 'next/script';
 import "./globals.css";
 import { RoleProvider } from "@/components/providers/role-provider";
 
@@ -7,16 +6,6 @@ export const metadata: Metadata = {
   title: "Noxius LM - Plataforma de Aprendizaje Práctico",
   description: "Accede a lecciones en video, sesiones en vivo con pantalla compartida, guías descargables y entrega de proyectos.",
   manifest: "/manifest.json",
-  openGraph: {
-    images: [
-      {
-        url: 'https://raw.githubusercontent.com/ismael548/sistema-educativo-/4fb9b3d326632e9886a091f4d44c92767ffbdb69/public/icons/icon-192x192.svg',
-        width: 1200,
-        height: 630,
-        alt: 'logo de el lm',
-      },
-    ],
-  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -25,9 +14,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0d0f12",
   width: "device-width",
   initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#0d0f12",
 };
 
 export default function RootLayout({
@@ -37,14 +27,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" className="dark">
-      <head>
-
-      </head>
-      <body className="bg-[#0d0f12] text-gray-100 min-h-screen antialiased selection:bg-indigo-500 selection:text-white">
-        <RoleProvider>{children} </RoleProvider>
-    <span  dangerouslySetInnerHTML={{
-        __html: ' <Script data-cfasync="false" src="https://bauval.org/14/86b9a370e757125c57618694f9cc40db"></Script>'+
-          '<script async="async" data-cfasync="false" src="https://bauval.org/21/992b12391f87ad93d9696af8b8546da4"></script><div  id="container-992b12391f87ad93d9696af8b8546da4"></div>'}}></span>
+      <body className="bg-[#0d0f12] text-gray-100 min-h-screen overflow-x-hidden antialiased selection:bg-indigo-500 selection:text-white">
+        <RoleProvider>{children}</RoleProvider>
       </body>
     </html>
   );
