@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   openGraph: {
     images: [
       {
-        url: '/public/icons/icon-192x192.svg',
+        url: 'https://raw.githubusercontent.com/ismael548/sistema-educativo-/4fb9b3d326632e9886a091f4d44c92767ffbdb69/public/icons/icon-192x192.svg',
         width: 1200,
         height: 630,
         alt: 'logo de el lm',
