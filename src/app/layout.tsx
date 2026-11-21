@@ -28,8 +28,7 @@ export default function RootLayout({
   return (
     <html lang="es" className="dark">
       <head>
-      <meta property="og:image" content="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQHwsNFQpYr2lvOXAwW-75bj587ahA_aOcX3E3ur3tSAg&s=10">
-<meta property="og:url" content="cosas-no-inventadas.html">
+
       </head>
       <body className="bg-[#0d0f12] text-gray-100 min-h-screen antialiased selection:bg-indigo-500 selection:text-white">
         <RoleProvider>{children} </RoleProvider>
