@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import Script from 'next/script';
-import holdem from '@/public/manifest.json';
 import "./globals.css";
 import { RoleProvider } from "@/components/providers/role-provider";
 
@@ -11,7 +10,7 @@ export const metadata: Metadata = {
   openGraph: {
     images: [
       {
-        url: holdem.display,
+        url: '@/public/icons/icon-192x192.svg',
         width: 1200,
         height: 630,
         alt: 'logo de el lm',
