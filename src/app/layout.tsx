@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   openGraph: {
     images: [
       {
-        url: '@/public/icons/icon-192x192.svg',
+        url: '/public/icons/icon-192x192.svg',
         width: 1200,
         height: 630,
         alt: 'logo de el lm',
