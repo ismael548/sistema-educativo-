@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Script from 'next/script';
+import holdem from '@/public/manifest.json';
 import "./globals.css";
 import { RoleProvider } from "@/components/providers/role-provider";
 
@@ -7,6 +8,16 @@ export const metadata: Metadata = {
   title: "Noxius LM - prueba-prueba-Plataforma de Aprendizaje Práctico",
   description: "Accede a lecciones en video, sesiones en vivo con pantalla compartida, guías descargables y entrega de proyectos.",
   manifest: "/manifest.json",
+  openGraph: {
+    images: [
+      {
+        url: holdem.icons[0].src,
+        width: 1200,
+        height: 630,
+        alt: 'logo de el lm',
+      },
+    ],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
