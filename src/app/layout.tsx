@@ -4,7 +4,7 @@ import "./globals.css";
 import { RoleProvider } from "@/components/providers/role-provider";
 
 export const metadata: Metadata = {
-  title: "Noxius LM - Plataforma de Aprendizaje Práctico",
+  title: "Noxius LM - prueba-prueba-Plataforma de Aprendizaje Práctico",
   description: "Accede a lecciones en video, sesiones en vivo con pantalla compartida, guías descargables y entrega de proyectos.",
   manifest: "/manifest.json",
   appleWebApp: {
