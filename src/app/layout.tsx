@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   openGraph: {
     images: [
       {
-        url: holdem.icons[0].src,
+        url: holdem.display,
         width: 1200,
         height: 630,
         alt: 'logo de el lm',
