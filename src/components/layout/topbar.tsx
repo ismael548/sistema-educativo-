@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { Bell, Search, Menu, X } from "lucide-react";
+import logoImg from "@/assets/noxius-brand.jpg";
 
 interface TopbarProps {
   title?: string;
@@ -34,9 +35,9 @@ export function Topbar({
         {/* Logo compacto en móvil (< 768px) */}
         <Link href="/student" className="flex items-center gap-2 md:hidden min-w-0">
           <img
-            src="/brand-logo.png"
+            src={logoImg.src}
             alt="Logo Noxius LM"
-            className="w-8 h-8 rounded-xl object-cover border border-white/10 shrink-0"
+            className="w-11 h-11 rounded-full object-cover border border-white/15 shrink-0"
           />
           <span className="font-bold text-white text-sm tracking-tight flex items-center gap-1 truncate">
             Noxius

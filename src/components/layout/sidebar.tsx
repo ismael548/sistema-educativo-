@@ -18,6 +18,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useUserRole } from "@/components/providers/role-provider";
+import logoImg from "@/assets/noxius-brand.jpg";
 
 interface SidebarProps {
   userRole?: "student" | "instructor" | "admin";
@@ -104,9 +105,9 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         <div className="h-16 flex items-center justify-between px-6 border-b border-[#232a35]">
           <div className="flex items-center gap-3">
             <img
-              src="/brand-logo.png"
+              src={logoImg.src}
               alt="Logo Noxius LM"
-              className="w-9 h-9 rounded-xl object-cover border border-white/10 shrink-0"
+              className="w-11 h-11 rounded-full object-cover border border-white/15 shrink-0"
             />
             <div>
               <span className="font-bold text-white text-base tracking-tight flex items-center gap-1.5">
