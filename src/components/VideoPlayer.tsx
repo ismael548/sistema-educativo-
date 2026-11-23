@@ -8,6 +8,8 @@ import {
   RotateCw,
   Maximize2,
   Minimize2,
+  Play,
+  Pause,
 } from "lucide-react";
 import { extractGoogleDriveId } from "@/utils/driveHelpers";
 
@@ -19,6 +21,9 @@ interface VideoPlayerProps {
 interface YTPlayerInstance {
   getCurrentTime: () => number;
   seekTo: (seconds: number, allowSeekAhead: boolean) => void;
+  playVideo: () => void;
+  pauseVideo: () => void;
+  getPlayerState?: () => number;
   getIframe?: () => HTMLIFrameElement;
   destroy: () => void;
 }
@@ -33,6 +38,7 @@ interface YTNamespace {
       playerVars?: Record<string, number | string>;
       events?: {
         onReady?: (event: { target: YTPlayerInstance }) => void;
+        onStateChange?: (event: { data: number; target: YTPlayerInstance }) => void;
       };
     }
   ) => YTPlayerInstance;
@@ -62,7 +68,7 @@ function getEmbedInfo(rawUrl: string): {
   );
   if (ytMatch?.[1]) {
     return {
-      embedUrl: `https://www.youtube.com/embed/${ytMatch[1]}?rel=0&modestbranding=1&playsinline=1&fs=1`,
+      embedUrl: `https://www.youtube.com/embed/${ytMatch[1]}?controls=1&rel=0&modestbranding=1&playsinline=1&fs=1`,
       provider: "youtube",
       youtubeId: ytMatch[1],
     };
@@ -99,6 +105,7 @@ export function VideoPlayer({ videoUrl, title }: VideoPlayerProps) {
   const ytPlayerRef = useRef<YTPlayerInstance | null>(null);
 
   const [isYtReady, setIsYtReady] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Sincronizar estado de pantalla completa
@@ -127,20 +134,21 @@ export function VideoPlayer({ videoUrl, title }: VideoPlayerProps) {
     };
   }, []);
 
-  // Inicializar API oficial de YouTube IFrame (sin guardar ni reanudar minuto)
+  // Inicializar API oficial de YouTube IFrame con controles nativos inmediatos (controls: 1)
   useEffect(() => {
     if (provider !== "youtube" || !youtubeId) {
       setIsYtReady(false);
+      setIsPlaying(false);
       return;
     }
 
     let isMounted = true;
     setIsYtReady(false);
+    setIsPlaying(false);
 
     const mountPlayer = () => {
       if (!isMounted || !ytHostRef.current || !window.YT?.Player) return;
 
-      // Limpiar instancia previa si existe
       if (ytPlayerRef.current) {
         try {
           ytPlayerRef.current.destroy();
@@ -152,7 +160,7 @@ export function VideoPlayer({ videoUrl, title }: VideoPlayerProps) {
 
       ytHostRef.current.innerHTML = "";
       const targetEl = document.createElement("div");
-      targetEl.className = "w-full h-full";
+      targetEl.className = "w-full h-full pointer-events-auto";
       ytHostRef.current.appendChild(targetEl);
 
       ytPlayerRef.current = new window.YT.Player(targetEl, {
@@ -160,6 +168,7 @@ export function VideoPlayer({ videoUrl, title }: VideoPlayerProps) {
         width: "100%",
         height: "100%",
         playerVars: {
+          controls: 1,
           fs: 1,
           playsinline: 1,
           rel: 0,
@@ -174,12 +183,17 @@ export function VideoPlayer({ videoUrl, title }: VideoPlayerProps) {
                 iframe.setAttribute("allowfullscreen", "true");
                 iframe.allow =
                   "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen";
-                iframe.className = "w-full h-full border-0";
+                iframe.className = "w-full h-full border-0 pointer-events-auto";
               }
             } catch {
               // Ignorar si no está disponible
             }
             setIsYtReady(true);
+          },
+          onStateChange: (event) => {
+            if (!isMounted) return;
+            // YT.PlayerState.PLAYING === 1
+            setIsPlaying(event.data === 1);
           },
         },
       });
@@ -229,6 +243,23 @@ export function VideoPlayer({ videoUrl, title }: VideoPlayerProps) {
       // Ignorar si el reproductor aún no está listo
     }
   }, []);
+
+  const handleTogglePlayPause = useCallback(() => {
+    const player = ytPlayerRef.current;
+    if (!player) return;
+    try {
+      const state = player.getPlayerState?.();
+      if (state === 1 || isPlaying) {
+        player.pauseVideo();
+        setIsPlaying(false);
+      } else {
+        player.playVideo();
+        setIsPlaying(true);
+      }
+    } catch {
+      // Ignorar si el reproductor aún no está listo
+    }
+  }, [isPlaying]);
 
   const handleToggleFullscreen = useCallback(async () => {
     const doc = document as Document & {
@@ -290,17 +321,22 @@ export function VideoPlayer({ videoUrl, title }: VideoPlayerProps) {
 
   return (
     <div className="w-full flex flex-col gap-2">
+      {/* Marco limpio del reproductor sin overlays ni capas que oscurezcan o intercepten toques */}
       <div
         ref={playerContainerRef}
-        className="relative w-full aspect-video bg-black rounded-xl overflow-hidden border border-[#232a35] shadow-surface"
+        className="w-full aspect-video bg-black rounded-xl overflow-hidden border border-[#232a35] shadow-surface"
       >
         {provider === "youtube" && youtubeId ? (
-          <div ref={ytHostRef} className="w-full h-full" aria-label={title} />
+          <div
+            ref={ytHostRef}
+            className="w-full h-full pointer-events-auto"
+            aria-label={title}
+          />
         ) : (
           <iframe
             src={embedUrl}
             title={title}
-            className="w-full h-full border-0"
+            className="w-full h-full border-0 pointer-events-auto"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
             allowFullScreen
             loading="lazy"
@@ -309,9 +345,9 @@ export function VideoPlayer({ videoUrl, title }: VideoPlayerProps) {
         )}
       </div>
 
-      {/* Barra de controles táctiles compacta */}
+      {/* Barra de controles táctiles justo debajo del video (nunca superpuesta) */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {provider === "youtube" && (
             <>
               <button
@@ -323,6 +359,21 @@ export function VideoPlayer({ videoUrl, title }: VideoPlayerProps) {
               >
                 <RotateCcw className="w-3.5 h-3.5 text-cyan-400" />
                 <span>-10s</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleTogglePlayPause}
+                disabled={!isYtReady}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#13161c] hover:bg-[#1a1f26] border border-[#232a35] hover:border-indigo-500/40 text-xs font-medium text-gray-200 disabled:opacity-45 transition-colors touch-manipulation"
+                title={isPlaying ? "Pausar video" : "Reproducir video"}
+              >
+                {isPlaying ? (
+                  <Pause className="w-3.5 h-3.5 text-cyan-400" />
+                ) : (
+                  <Play className="w-3.5 h-3.5 text-cyan-400" />
+                )}
+                <span>{isPlaying ? "Pausar" : "Reproducir"}</span>
               </button>
 
               <button

@@ -97,12 +97,12 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 md:w-64 bg-[#060913]/80 backdrop-blur-xl border-r border-indigo-400/15 flex flex-col h-screen select-none shrink-0 transform transition-transform duration-200 ease-out md:relative md:z-10 md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-72 md:w-64 h-dvh md:h-screen bg-[#060913]/95 md:bg-[#060913]/80 backdrop-blur-xl border-r border-indigo-400/15 flex flex-col justify-between overflow-hidden select-none shrink-0 transform transition-transform duration-200 ease-out md:relative md:z-10 md:translate-x-0 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         {/* Brand Header */}
-        <div className="h-16 flex items-center justify-between px-6 border-b border-white/10">
+        <div className="h-14 md:h-16 flex items-center justify-between px-5 md:px-6 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-3">
             <img
               src={logoImg.src}
@@ -164,7 +164,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         </div>
 
         {/* Bottom Profile & Role Switcher */}
-        <div className="p-4 border-t border-[#232a35] bg-[#13161c]/70 space-y-3">
+        <div className="shrink-0 p-3.5 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:p-4 border-t border-[#232a35] bg-[#13161c]/85 space-y-2.5">
           {isEditingName ? (
             <form onSubmit={handleSaveName} className="flex items-center gap-1.5">
               <input
@@ -236,7 +236,10 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           ) : (
             <button
               type="button"
-              onClick={switchToStudent}
+              onClick={() => {
+                switchToStudent();
+                onClose?.();
+              }}
               className="w-full flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-indigo-600/15 hover:bg-indigo-600/25 border border-indigo-500/30 text-xs font-medium text-indigo-300 transition-colors"
             >
               <UserCheck className="w-3.5 h-3.5" />

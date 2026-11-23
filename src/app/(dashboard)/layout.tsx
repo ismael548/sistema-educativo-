@@ -13,7 +13,7 @@ export default function DashboardLayout({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
-    <div className="flex h-screen w-full bg-[#050811] relative overflow-hidden overflow-x-hidden">
+    <div className="flex h-dvh w-full max-w-full bg-[#050811] relative overflow-hidden overflow-x-hidden">
       {/* Fondo 3D Interactivo: Esfera de Red Neuronal / Átomo + Campo Estelar */}
       <DashboardNeuralBackground />
 
@@ -24,12 +24,12 @@ export default function DashboardLayout({
       />
 
       {/* Área Principal de Contenido (contenedores intermedios transparentes) */}
-      <div className="relative z-10 flex-1 flex flex-col min-w-0 bg-transparent overflow-y-auto overflow-x-hidden">
+      <div className="relative z-10 flex-1 flex flex-col min-w-0 max-w-full bg-transparent overflow-y-auto overflow-x-hidden">
         <Topbar
           isMenuOpen={isMobileMenuOpen}
           onMenuClick={() => setIsMobileMenuOpen((prev) => !prev)}
         />
-        <main className="relative z-10 flex-1 p-4 md:p-6 bg-transparent overflow-x-hidden">
+        <main className="relative z-10 flex-1 p-3 sm:p-4 md:p-6 bg-transparent overflow-x-hidden max-w-full">
           {children}
         </main>
       </div>

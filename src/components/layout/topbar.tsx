@@ -31,13 +31,13 @@ export function Topbar({
   const { discordUrl } = useUserRole();
 
   return (
-    <header className="h-16 bg-[#060913]/80 backdrop-blur-xl border-b border-indigo-400/15 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20 shrink-0">
-      <div className="flex items-center gap-3 min-w-0">
+    <header className="h-14 md:h-16 w-full max-w-full bg-[#060913]/85 backdrop-blur-xl border-b border-indigo-400/15 px-3 py-2.5 md:py-0 md:px-6 flex items-center justify-between gap-2 sticky top-0 z-20 shrink-0">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         {onMenuClick && (
           <button
             type="button"
             onClick={onMenuClick}
-            className="md:hidden p-2 -ml-1 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 border border-white/10 transition-colors shrink-0"
+            className="md:hidden p-2 -ml-1 rounded-lg text-gray-200 hover:text-white hover:bg-white/10 border border-white/10 transition-colors shrink-0"
             aria-label={isMenuOpen ? "Cerrar menú de navegación" : "Abrir menú de navegación"}
           >
             {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -49,7 +49,7 @@ export function Topbar({
           <img
             src={logoImg.src}
             alt="Logo Noxius LM"
-            className="w-10 h-10 rounded-full object-cover border border-white/15 shrink-0"
+            className="w-8 h-8 rounded-full object-cover border border-white/15 shrink-0"
           />
           <span className="font-bold text-white text-sm tracking-tight flex items-center gap-1 truncate">
             Noxius
@@ -94,9 +94,12 @@ export function Topbar({
         </a>
 
         {/* Live Badge */}
-        <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs">
+        <div
+          className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs shrink-0"
+          title="En Línea"
+        >
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="font-mono text-[11px]">En Línea</span>
+          <span className="hidden sm:inline font-mono text-[11px]">En Línea</span>
         </div>
 
         {/* Notifications */}
