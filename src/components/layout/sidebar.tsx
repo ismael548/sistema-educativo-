@@ -104,7 +104,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         <div className="h-16 flex items-center justify-between px-6 border-b border-[#232a35]">
           <div className="flex items-center gap-3">
             <img
-              src="/logo-noxius.jpg"
+              src="/brand-logo.png"
               alt="Logo Noxius LM"
               className="w-9 h-9 rounded-xl object-cover border border-white/10 shrink-0"
             />

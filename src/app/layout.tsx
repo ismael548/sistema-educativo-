@@ -7,8 +7,8 @@ export const metadata: Metadata = {
   description: "Accede a lecciones en video, sesiones en vivo con pantalla compartida, guías descargables y entrega de proyectos.",
   manifest: "/manifest.json",
   icons: {
-    icon: "/logo-noxius.jpg",
-    apple: "/logo-noxius.jpg",
+    icon: "/brand-logo.png",
+    apple: "/brand-logo.png",
   },
   appleWebApp: {
     capable: true,

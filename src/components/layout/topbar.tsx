@@ -34,7 +34,7 @@ export function Topbar({
         {/* Logo compacto en móvil (< 768px) */}
         <Link href="/student" className="flex items-center gap-2 md:hidden min-w-0">
           <img
-            src="/logo-noxius.jpg"
+            src="/brand-logo.png"
             alt="Logo Noxius LM"
             className="w-8 h-8 rounded-xl object-cover border border-white/10 shrink-0"
           />

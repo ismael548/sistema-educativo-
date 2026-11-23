@@ -83,7 +83,7 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-3">
             <img
-              src="/logo-noxius.jpg"
+              src="/brand-logo.png"
               alt="Logo Noxius LM"
               className="w-9 h-9 rounded-xl object-cover border border-white/10 shrink-0"
             />
