@@ -1,23 +1,23 @@
 {
   "name": "Noxius LM",
   "short_name": "Noxius LM",
-  "description": "Plataforma educativa de alto rendimiento con clases en vivo WebRTC, materiales en la nube y seguimiento de progreso.",
+  "description": "Domina la programación real mediante sesiones en vivo, lectura crítica de código y desarrollo asistido por IA.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0d0f12",
-  "theme_color": "#4f46e5",
+  "background_color": "#05070d",
+  "theme_color": "#05070d",
   "icons": [
     {
-      "src": "/icons/icon-192x192.svg",
+      "src": "/noxius-icon.jpg",
       "sizes": "192x192",
-      "type": "image/svg+xml",
+      "type": "image/jpeg",
       "purpose": "any maskable"
     },
     {
-      "src": "/icons/icon-512x512.svg",
+      "src": "/noxius-icon.jpg",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/jpeg",
       "purpose": "any maskable"
     }
   ]

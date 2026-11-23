@@ -22,6 +22,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { LessonItem } from "@/lib/supabase/types";
 import { useUserRole } from "@/components/providers/role-provider";
+import logoImg from "@/assets/noxius-brand.jpg";
 
 function extractYouTubeId(url: string): string | null {
   if (!url) return null;
@@ -69,6 +70,7 @@ export default function DashboardPage() {
   const [materialsCount, setMaterialsCount] = useState(0);
   const [messagesCount, setMessagesCount] = useState(0);
   const [livePeersCount, setLivePeersCount] = useState(0);
+  const [isLivePresenting, setIsLivePresenting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchDashboardData = useCallback(async () => {
@@ -136,8 +138,12 @@ export default function DashboardPage() {
       const channel = supabase.channel("noxius-live-room");
 
       channel.on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState();
+        const state = channel.presenceState<{ isPresenting?: boolean }>();
         setLivePeersCount(Object.keys(state).length);
+        const presenting = Object.values(state).some((entries) =>
+          entries.some((entry) => entry.isPresenting === true)
+        );
+        setIsLivePresenting(presenting);
       });
 
       channel.subscribe();
@@ -180,17 +186,24 @@ export default function DashboardPage() {
     return (
       <div className="space-y-6 max-w-7xl mx-auto">
         {/* Header Docente */}
-        <div className="rounded-2xl bg-gradient-to-r from-indigo-900/40 via-[#13161c] to-[#13161c] border border-indigo-500/25 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-indigo-400 text-xs font-mono uppercase tracking-wider mb-1">
-              <ShieldCheck className="w-3.5 h-3.5" /> Modo Docente Activo
+        <div className="rounded-2xl bg-[#0d111a]/80 backdrop-blur-md border border-white/10 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0">
+            <img
+              src={logoImg.src}
+              alt="Logo Noxius LM"
+              className="w-11 h-11 rounded-full object-cover border border-white/15 shrink-0"
+            />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-indigo-400 text-xs font-mono uppercase tracking-wider mb-1">
+                <ShieldCheck className="w-3.5 h-3.5" /> Modo Docente Activo • Noxius LM
+              </div>
+              <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight truncate">
+                Panel de Control Docente
+              </h1>
+              <p className="text-xs text-gray-400 mt-1">
+                Gestiona tus clases en video, materiales en Google Drive/Colab y transmisiones en vivo.
+              </p>
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">
-              Panel de Control Docente
-            </h1>
-            <p className="text-xs text-gray-400 mt-1">
-              Gestiona tus clases en video, materiales en Google Drive/Colab y transmisiones en vivo.
-            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
@@ -320,18 +333,25 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Welcome Banner */}
-      <div className="relative rounded-2xl bg-gradient-to-r from-indigo-900/40 via-[#13161c] to-[#13161c] border border-indigo-500/20 p-6 overflow-hidden">
+      <div className="relative rounded-2xl bg-[#0d111a]/80 backdrop-blur-md border border-white/10 p-6 overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-indigo-400 text-xs font-mono uppercase tracking-wider mb-1">
-              <Sparkles className="w-3.5 h-3.5" /> Portal del Estudiante
+          <div className="flex items-center gap-4 min-w-0">
+            <img
+              src={logoImg.src}
+              alt="Logo Noxius LM"
+              className="w-11 h-11 rounded-full object-cover border border-white/15 shrink-0"
+            />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-indigo-400 text-xs font-mono uppercase tracking-wider mb-1">
+                <Sparkles className="w-3.5 h-3.5" /> Portal del Estudiante • Noxius LM
+              </div>
+              <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight truncate">
+                Bienvenido, {userName}
+              </h1>
+              <p className="text-xs text-gray-400 mt-1 max-w-xl">
+                Accede a tus clases grabadas, materiales compartidos y transmisiones en vivo desde un solo lugar.
+              </p>
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">
-              Bienvenido, {userName}
-            </h1>
-            <p className="text-xs text-gray-400 mt-1 max-w-xl">
-              Accede a tus clases grabadas, materiales compartidos y transmisiones en vivo desde un solo lugar.
-            </p>
           </div>
 
           <Link
@@ -520,18 +540,20 @@ export default function DashboardPage() {
 
         {/* Columna Lateral: Aula Virtual en Vivo + Accesos */}
         <div className="space-y-6">
-          <div className="bg-[#13161c] border border-indigo-500/30 rounded-xl p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`w-2.5 h-2.5 rounded-full ${
-                    livePeersCount > 0 ? "bg-emerald-500 animate-pulse" : "bg-indigo-500"
-                  }`}
-                />
-                <span className="text-xs font-mono font-bold text-indigo-300 uppercase tracking-wider">
-                  Aula Virtual en Vivo
+          <div className="bg-[#0d111a]/80 backdrop-blur-md border border-white/10 rounded-xl p-5 space-y-4">
+            {/* Indicador claro de estado de sala arriba del bloque en vivo */}
+            <div className="flex items-center justify-between gap-2 pb-3 border-b border-white/10">
+              {isLivePresenting ? (
+                <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-300 text-[11px] font-mono font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>En vivo ahora</span>
                 </span>
-              </div>
+              ) : (
+                <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-gray-400 text-[11px] font-mono">
+                  <span className="w-2 h-2 rounded-full bg-gray-500" />
+                  <span>Sala en espera</span>
+                </span>
+              )}
               <span className="text-[11px] font-mono text-gray-400">
                 {livePeersCount > 0 ? `${livePeersCount} en sala` : "Disponible"}
               </span>
@@ -539,10 +561,10 @@ export default function DashboardPage() {
 
             <div>
               <h3 className="text-sm font-semibold text-white">
-                Transmisión WebRTC y Chat en Tiempo Real
+                Aula Virtual en Vivo
               </h3>
               <p className="text-xs text-gray-400 mt-1">
-                Conéctate al aula virtual para ver la pantalla del docente en vivo con zoom interactivo.
+                Conéctate al aula virtual para ver la pantalla del docente en vivo con zoom interactivo y código auditable.
               </p>
             </div>
 

@@ -75,27 +75,27 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#05070d] text-gray-100 relative overflow-hidden flex flex-col">
+    <div className="min-h-screen bg-[#05070d] text-gray-100 relative overflow-x-hidden flex flex-col">
       {/* Galaxia Espiral Interactiva en Canvas */}
       <AnimatedBackground />
 
       {/* 1. Navbar Superior Minimalista (Solo Logo + Acceso Docente) */}
       <header className="relative z-10 border-b border-white/10 bg-[#0d111a]/70 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-3">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-4">
+          <Link href="/" className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <img
               src={logoImg.src}
               alt="Logo Noxius LM"
-              className="w-11 h-11 rounded-full object-cover border border-white/15 shrink-0"
+              className="w-9 h-9 sm:w-11 sm:h-11 rounded-full object-cover border border-white/15 shrink-0"
             />
-            <div>
-              <div className="flex items-center gap-1.5 font-bold text-white tracking-tight text-base">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 font-bold text-white tracking-tight text-sm sm:text-base whitespace-nowrap">
                 <span>Noxius</span>
-                <span className="text-[11px] px-1.5 py-0.5 rounded bg-gradient-to-r from-[#4f46e5]/25 to-[#06b6d4]/25 text-cyan-300 border border-indigo-500/30 font-mono">
+                <span className="text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded bg-gradient-to-r from-[#4f46e5]/25 to-[#06b6d4]/25 text-cyan-300 border border-indigo-500/30 font-mono">
                   LM
                 </span>
               </div>
-              <p className="text-[11px] text-gray-400 hidden sm:block">
+              <p className="text-[11px] text-gray-400 hidden sm:block truncate">
                 Plataforma de Aprendizaje Práctico
               </p>
             </div>
@@ -104,9 +104,9 @@ export default function HomePage() {
           <button
             type="button"
             onClick={handleOpenTeacherModal}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#13161c] hover:bg-[#1a1f26] border border-[#232a35] text-xs font-medium text-gray-300 hover:text-white transition-colors"
+            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg bg-[#0d111a]/80 hover:bg-[#1a1f26] border border-white/10 text-[11px] sm:text-xs font-medium text-gray-300 hover:text-white transition-colors whitespace-nowrap shrink-0"
           >
-            <KeyRound className="w-3.5 h-3.5 text-indigo-400" />
+            <KeyRound className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
             <span>Acceso Docente</span>
           </button>
         </div>

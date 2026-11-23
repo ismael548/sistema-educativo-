@@ -18,6 +18,11 @@ import {
   Expand,
   Shrink,
   X,
+  Shuffle,
+  Code2,
+  Copy,
+  Check,
+  Send,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { LessonChat } from "@/components/chat/lesson-chat";
@@ -55,7 +60,23 @@ export function VirtualClassroom({
   const [hasRemoteStream, setHasRemoteStream] = useState(false);
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [connectedPeers, setConnectedPeers] = useState(1);
+  const [connectedUsers, setConnectedUsers] = useState<
+    { peerId: string; userName: string; role: string }[]
+  >([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Herramientas pedagógicas anti-ilusión (Ruleta + Código Auditable)
+  const [isSpinning, setIsSpinning] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
+  const [codeChallenge, setCodeChallenge] = useState<{
+    title: string;
+    code: string;
+    updatedAt: string;
+  } | null>(null);
+  const [challengeTitleDraft, setChallengeTitleDraft] = useState("Auditoría de Código en Vivo");
+  const [challengeCodeDraft, setChallengeCodeDraft] = useState("");
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [showCodeEditor, setShowCodeEditor] = useState(false);
 
   // Estado de Zoom, Pan y Pantalla Completa
   const [zoom, setZoom] = useState(1);
@@ -510,9 +531,28 @@ export function VirtualClassroom({
     };
 
     channel.on("presence", { event: "sync" }, () => {
-      const state = channel.presenceState<{ peerId?: string; isPresenting?: boolean }>();
+      const state = channel.presenceState<{
+        peerId?: string;
+        userName?: string;
+        role?: string;
+        isPresenting?: boolean;
+      }>();
       const count = Object.keys(state).length;
       setConnectedPeers(Math.max(1, count));
+
+      const usersList: { peerId: string; userName: string; role: string }[] = [];
+      Object.values(state).forEach((entries) => {
+        entries.forEach((entry) => {
+          if (entry.peerId) {
+            usersList.push({
+              peerId: entry.peerId,
+              userName: entry.userName || "Estudiante",
+              role: entry.role || "student",
+            });
+          }
+        });
+      });
+      setConnectedUsers(usersList);
 
       // Si algún otro usuario tiene isPresenting === true y el estudiante aún no recibe stream, solicitar oferta
       if (!isBroadcastingRef.current && !hasRemoteStreamRef.current) {
@@ -524,6 +564,22 @@ export function VirtualClassroom({
         if (someonePresenting) {
           void requestOfferFromTeacher();
         }
+      }
+    });
+
+    channel.on("broadcast", { event: "oral-defense-pick" }, ({ payload }) => {
+      if (payload?.studentName) {
+        setSelectedStudent(payload.studentName as string);
+      }
+    });
+
+    channel.on("broadcast", { event: "code-challenge" }, ({ payload }) => {
+      if (payload && typeof payload.code === "string") {
+        setCodeChallenge({
+          title: (payload.title as string) || "Auditoría de Código en Vivo",
+          code: payload.code as string,
+          updatedAt: (payload.updatedAt as string) || new Date().toISOString(),
+        });
       }
     });
 
@@ -687,42 +743,95 @@ export function VirtualClassroom({
 
   const hasActiveStream = isBroadcasting || hasRemoteStream;
   const isFullscreenActive = isNativeFullscreen || isCssFullscreen;
+  const isTeacher = user.role === "instructor" || isBroadcasting;
+
+  // Ruleta / Selector aleatorio de defensa oral
+  const handlePickRandomStudent = () => {
+    const candidates = connectedUsers.filter((u) => u.peerId !== peerIdRef.current);
+    const pool = candidates.length > 0 ? candidates : connectedUsers;
+    if (pool.length === 0 || isSpinning) return;
+
+    setIsSpinning(true);
+    let ticks = 0;
+    const spinInterval = window.setInterval(() => {
+      const randomCandidate = pool[Math.floor(Math.random() * pool.length)];
+      setSelectedStudent(randomCandidate.userName);
+      ticks += 1;
+      if (ticks >= 10) {
+        window.clearInterval(spinInterval);
+        const finalPick = pool[Math.floor(Math.random() * pool.length)].userName;
+        setSelectedStudent(finalPick);
+        setIsSpinning(false);
+        if (channelRef.current) {
+          void channelRef.current.send({
+            type: "broadcast",
+            event: "oral-defense-pick",
+            payload: { studentName: finalPick },
+          });
+        }
+      }
+    }, 80);
+  };
+
+  // Publicar bloque de reto / código auditable en tiempo real
+  const handlePublishChallenge = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!challengeCodeDraft.trim()) return;
+
+    const payload = {
+      title: challengeTitleDraft.trim() || "Auditoría de Código en Vivo",
+      code: challengeCodeDraft,
+      updatedAt: new Date().toISOString(),
+    };
+    setCodeChallenge(payload);
+    setShowCodeEditor(false);
+
+    if (channelRef.current) {
+      await channelRef.current.send({
+        type: "broadcast",
+        event: "code-challenge",
+        payload,
+      });
+    }
+  };
+
+  const handleCopyChallenge = async () => {
+    if (!codeChallenge?.code) return;
+    try {
+      await navigator.clipboard.writeText(codeChallenge.code);
+      setCopiedCode(true);
+      window.setTimeout(() => setCopiedCode(false), 2000);
+    } catch {
+      // Ignorar si clipboard no está disponible
+    }
+  };
 
   return (
     <div
       className={
         isExpanded
-          ? "fixed inset-0 z-40 flex flex-col bg-[#0d0f12] overflow-hidden"
-          : "flex flex-col min-h-[calc(100vh-4rem)] lg:h-[calc(100vh-4rem)] bg-[#0d0f12]"
+          ? "fixed inset-0 z-40 flex flex-col bg-[#05070d] overflow-hidden"
+          : "flex flex-col min-h-[calc(100vh-4rem)] lg:h-[calc(100vh-4rem)] bg-[#05070d]"
       }
     >
       {/* Class Header */}
-      <div className="min-h-14 py-2.5 px-3 sm:px-6 border-b border-[#232a35] bg-[#13161c] flex flex-wrap items-center justify-between gap-2 shrink-0">
+      <div className="min-h-14 py-2.5 px-3 sm:px-6 border-b border-white/10 bg-[#0d111a]/80 backdrop-blur-md flex flex-wrap items-center justify-between gap-2 shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
-          <span
-            className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-              hasActiveStream ? "bg-red-500 animate-pulse" : "bg-indigo-500"
-            }`}
-          />
+          {hasActiveStream ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-300 text-[10px] font-mono font-semibold shrink-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>En vivo ahora</span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-gray-400 text-[10px] font-mono shrink-0">
+              <span className="w-2 h-2 rounded-full bg-gray-500" />
+              <span>Sala en espera</span>
+            </span>
+          )}
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h2 className="text-xs sm:text-sm font-semibold text-white tracking-wide truncate">
-                {courseTitle}
-              </h2>
-              <span
-                className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase shrink-0 border ${
-                  hasActiveStream
-                    ? "bg-red-500/20 text-red-400 border-red-500/30"
-                    : "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
-                }`}
-              >
-                {isBroadcasting
-                  ? "Transmitiendo"
-                  : hasRemoteStream
-                  ? "En Vivo"
-                  : "Sala WebRTC"}
-              </span>
-            </div>
+            <h2 className="text-xs sm:text-sm font-semibold text-white tracking-wide truncate">
+              {courseTitle}
+            </h2>
             <p className="text-[11px] text-gray-400 truncate hidden sm:block">
               Sala: {roomName} • Transmisión nativa WebRTC sin límite de tiempo
             </p>
@@ -730,10 +839,39 @@ export function VirtualClassroom({
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0">
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1a1f26] border border-[#232a35] rounded-lg text-xs text-gray-300 font-mono">
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1a1f26] border border-white/10 rounded-lg text-xs text-gray-300 font-mono">
             <Users className="w-3.5 h-3.5 text-indigo-400" />
             <span>{connectedPeers} en sala</span>
           </div>
+
+          {isTeacher && (
+            <button
+              type="button"
+              onClick={handlePickRandomStudent}
+              disabled={isSpinning || connectedUsers.length === 0}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/35 text-amber-300 text-xs font-medium transition-colors disabled:opacity-50"
+              title="Seleccionar un estudiante al azar para defensa oral"
+            >
+              <Shuffle className={`w-3.5 h-3.5 ${isSpinning ? "animate-spin" : ""}`} />
+              <span>{isSpinning ? "Eligiendo..." : "Elegir alumno al azar"}</span>
+            </button>
+          )}
+
+          {isTeacher && (
+            <button
+              type="button"
+              onClick={() => setShowCodeEditor((prev) => !prev)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                showCodeEditor
+                  ? "bg-cyan-500/20 border-cyan-400/40 text-cyan-300"
+                  : "bg-[#1a1f26] border-white/10 text-gray-300 hover:text-white"
+              }`}
+              title="Publicar reto o fragmento de código auditable"
+            >
+              <Code2 className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden sm:inline">Publicar Código</span>
+            </button>
+          )}
 
           {isBroadcasting ? (
             <>
@@ -812,157 +950,268 @@ export function VirtualClassroom({
         </div>
       )}
 
-      {/* Video Stage & Side Chat Panel */}
+      {/* Video Stage + Pedagogical Tools & Side Chat Panel */}
       <div className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden p-3 gap-3">
-        {/* Escenario principal de Video WebRTC con Pan & Zoom + Fullscreen */}
-        <div
-          ref={videoContainerRef}
-          onWheel={handleWheel}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUpOrLeave}
-          onMouseLeave={handleMouseUpOrLeave}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          className={`${
-            isCssFullscreen
-              ? "fixed inset-0 z-50 bg-black"
-              : "flex-1 min-h-[260px] sm:min-h-[340px] bg-[#13161c] border border-[#232a35] rounded-xl shadow-surface"
-          } overflow-hidden relative flex items-center justify-center select-none touch-none ${
-            zoom > 1 ? (isDragging ? "cursor-grabbing" : "cursor-grab") : ""
-          }`}
-        >
-          {/* Botón flotante para salir de Pantalla Completa CSS (ideal para iOS/iPhone) */}
-          {isCssFullscreen && (
-            <button
-              type="button"
-              onClick={() => setIsCssFullscreen(false)}
-              className="fixed top-4 right-4 z-50 flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-black/75 hover:bg-black/90 border border-white/20 text-white text-xs font-medium backdrop-blur-md shadow-lg transition-colors"
-            >
-              <X className="w-4 h-4 text-rose-400" />
-              <span>Salir de Pantalla Completa</span>
-            </button>
-          )}
-
-          {/* Contenedor transformable para Zoom y Desplazamiento */}
-          <div
-            style={{
-              transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
-              transformOrigin: "center center",
-              transition: isDragging ? "none" : "transform 120ms ease-out",
-            }}
-            className={`w-full h-full flex items-center justify-center ${
-              hasActiveStream ? "block" : "hidden"
-            }`}
-          >
-            {/* Vista previa local del profesor */}
-            <video
-              ref={localVideoRef}
-              autoPlay
-              muted
-              playsInline
-              className={`w-full h-full object-contain bg-black ${
-                isBroadcasting ? "block" : "hidden"
-              }`}
-            />
-
-            {/* Stream remoto recibido por el alumno */}
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              controls
-              className={`w-full h-full object-contain bg-black ${
-                !isBroadcasting && hasRemoteStream ? "block" : "hidden"
-              }`}
-            />
-          </div>
-
-          {/* Barra flotante de controles de Zoom y Pantalla Completa */}
-          {hasActiveStream && (
-            <div
-              onMouseDown={(e) => e.stopPropagation()}
-              onTouchStart={(e) => e.stopPropagation()}
-              className="absolute bottom-4 right-4 z-20 flex items-center gap-1 p-1.5 rounded-xl bg-black/70 border border-white/15 backdrop-blur-md shadow-lg"
-            >
-              <button
-                type="button"
-                onClick={() => updateZoom(zoom - ZOOM_STEP)}
-                disabled={zoom <= MIN_ZOOM}
-                className="p-2 rounded-lg text-gray-200 hover:bg-white/10 disabled:opacity-35 transition-colors"
-                title="Alejar (-)"
-              >
-                <ZoomOut className="w-4 h-4" />
-              </button>
-
-              <button
-                type="button"
-                onClick={resetZoom}
-                className="px-2.5 py-1.5 rounded-lg text-[11px] font-mono font-semibold text-gray-200 hover:bg-white/10 transition-colors min-w-[52px]"
-                title="Restablecer zoom al 100%"
-              >
-                {Math.round(zoom * 100)}%
-              </button>
-
-              <button
-                type="button"
-                onClick={() => updateZoom(zoom + ZOOM_STEP)}
-                disabled={zoom >= MAX_ZOOM}
-                className="p-2 rounded-lg text-gray-200 hover:bg-white/10 disabled:opacity-35 transition-colors"
-                title="Acercar (+)"
-              >
-                <ZoomIn className="w-4 h-4" />
-              </button>
-
-              <div className="w-px h-5 bg-white/15 mx-0.5" />
-
-              <button
-                type="button"
-                onClick={() => void toggleFullscreen()}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-gray-200 hover:bg-white/10 transition-colors"
-                title={isFullscreenActive ? "Salir de Pantalla Completa" : "Pantalla Completa"}
-              >
-                {isFullscreenActive ? (
-                  <Minimize className="w-4 h-4 text-indigo-400" />
-                ) : (
-                  <Maximize className="w-4 h-4 text-indigo-400" />
-                )}
-                <span className="hidden sm:inline">
-                  {isFullscreenActive ? "Salir" : "Pantalla Completa"}
+        {/* Columna principal: Defensa Oral + Video WebRTC + Reto de Código */}
+        <div className="flex-1 flex flex-col gap-3 min-w-0 lg:overflow-y-auto">
+          {/* Banner de Defensa Oral / Ruleta */}
+          {selectedStudent && (
+            <div className="px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-400/35 flex items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-2 text-xs text-amber-200 min-w-0">
+                <Shuffle className="w-4 h-4 text-amber-400 shrink-0" />
+                <span className="truncate">
+                  Defensa Oral / Auditoría seleccionada:{" "}
+                  <strong className="text-white">{selectedStudent}</strong>
                 </span>
-              </button>
+              </div>
+              {isTeacher && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedStudent(null)}
+                  className="text-amber-300 hover:text-white p-1 rounded"
+                  aria-label="Cerrar aviso"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           )}
 
-          {/* Pantalla de espera cuando no hay transmisión activa */}
-          {!isBroadcasting && !hasRemoteStream && (
-            <div className="flex flex-col items-center justify-center text-center p-8 max-w-md space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
-                <Tv className="w-8 h-8" />
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#1a1f26] border border-[#232a35] text-[11px] font-mono text-gray-400">
-                  <Radio className="w-3 h-3 text-indigo-400 animate-pulse" />
-                  <span>Canal WebRTC Activo</span>
-                </div>
-                <h3 className="text-base font-semibold text-white">
-                  Esperando que el docente inicie la transmisión...
-                </h3>
-                <p className="text-xs text-gray-400">
-                  En cuanto el profesor comparta su pantalla y audio, la clase aparecerá aquí automáticamente en tiempo real.
-                </p>
-              </div>
-
+          {/* Escenario principal de Video WebRTC con Pan & Zoom + Fullscreen */}
+          <div
+            ref={videoContainerRef}
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUpOrLeave}
+            onMouseLeave={handleMouseUpOrLeave}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            className={`${
+              isCssFullscreen
+                ? "fixed inset-0 z-50 bg-black"
+                : "flex-1 min-h-[240px] sm:min-h-[340px] bg-[#0d111a]/80 backdrop-blur-md border border-white/10 rounded-xl shadow-surface"
+            } overflow-hidden relative flex items-center justify-center select-none touch-none ${
+              zoom > 1 ? (isDragging ? "cursor-grabbing" : "cursor-grab") : ""
+            }`}
+          >
+            {/* Botón flotante para salir de Pantalla Completa CSS (ideal para iOS/iPhone) */}
+            {isCssFullscreen && (
               <button
                 type="button"
-                onClick={() => void startBroadcast()}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors shadow-glow"
+                onClick={() => setIsCssFullscreen(false)}
+                className="fixed top-4 right-4 z-50 flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-black/75 hover:bg-black/90 border border-white/20 text-white text-xs font-medium backdrop-blur-md shadow-lg transition-colors"
               >
-                <MonitorUp className="w-4 h-4" />
-                <span>Compartir Pantalla y Audio (Iniciar Clase)</span>
+                <X className="w-4 h-4 text-rose-400" />
+                <span>Salir de Pantalla Completa</span>
               </button>
+            )}
+
+            {/* Contenedor transformable para Zoom y Desplazamiento */}
+            <div
+              style={{
+                transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
+                transformOrigin: "center center",
+                transition: isDragging ? "none" : "transform 120ms ease-out",
+              }}
+              className={`w-full h-full flex items-center justify-center ${
+                hasActiveStream ? "block" : "hidden"
+              }`}
+            >
+              {/* Vista previa local del profesor */}
+              <video
+                ref={localVideoRef}
+                autoPlay
+                muted
+                playsInline
+                className={`w-full aspect-video max-h-[75vh] object-contain bg-black ${
+                  isBroadcasting ? "block" : "hidden"
+                }`}
+              />
+
+              {/* Stream remoto recibido por el alumno */}
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                controls
+                className={`w-full aspect-video max-h-[75vh] object-contain bg-black ${
+                  !isBroadcasting && hasRemoteStream ? "block" : "hidden"
+                }`}
+              />
+            </div>
+
+            {/* Barra flotante de controles de Zoom y Pantalla Completa */}
+            {hasActiveStream && (
+              <div
+                onMouseDown={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+                className="absolute bottom-4 right-4 z-20 flex items-center gap-1 p-1.5 rounded-xl bg-black/70 border border-white/15 backdrop-blur-md shadow-lg"
+              >
+                <button
+                  type="button"
+                  onClick={() => updateZoom(zoom - ZOOM_STEP)}
+                  disabled={zoom <= MIN_ZOOM}
+                  className="p-2 rounded-lg text-gray-200 hover:bg-white/10 disabled:opacity-35 transition-colors"
+                  title="Alejar (-)"
+                >
+                  <ZoomOut className="w-4 h-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={resetZoom}
+                  className="px-2.5 py-1.5 rounded-lg text-[11px] font-mono font-semibold text-gray-200 hover:bg-white/10 transition-colors min-w-[52px]"
+                  title="Restablecer zoom al 100%"
+                >
+                  {Math.round(zoom * 100)}%
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => updateZoom(zoom + ZOOM_STEP)}
+                  disabled={zoom >= MAX_ZOOM}
+                  className="p-2 rounded-lg text-gray-200 hover:bg-white/10 disabled:opacity-35 transition-colors"
+                  title="Acercar (+)"
+                >
+                  <ZoomIn className="w-4 h-4" />
+                </button>
+
+                <div className="w-px h-5 bg-white/15 mx-0.5" />
+
+                <button
+                  type="button"
+                  onClick={() => void toggleFullscreen()}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-gray-200 hover:bg-white/10 transition-colors"
+                  title={isFullscreenActive ? "Salir de Pantalla Completa" : "Pantalla Completa"}
+                >
+                  {isFullscreenActive ? (
+                    <Minimize className="w-4 h-4 text-indigo-400" />
+                  ) : (
+                    <Maximize className="w-4 h-4 text-indigo-400" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {isFullscreenActive ? "Salir" : "Pantalla Completa"}
+                  </span>
+                </button>
+              </div>
+            )}
+
+            {/* Pantalla de espera cuando no hay transmisión activa */}
+            {!isBroadcasting && !hasRemoteStream && (
+              <div className="flex flex-col items-center justify-center text-center p-6 sm:p-8 max-w-md space-y-4">
+                <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                  <Tv className="w-8 h-8" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#1a1f26] border border-white/10 text-[11px] font-mono text-gray-400">
+                    <Radio className="w-3 h-3 text-indigo-400 animate-pulse" />
+                    <span>Canal WebRTC Activo</span>
+                  </div>
+                  <h3 className="text-base font-semibold text-white">
+                    Esperando que el docente inicie la transmisión...
+                  </h3>
+                  <p className="text-xs text-gray-400">
+                    En cuanto el profesor comparta su pantalla y audio, la clase aparecerá aquí automáticamente en tiempo real.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void startBroadcast()}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors shadow-glow"
+                >
+                  <MonitorUp className="w-4 h-4" />
+                  <span>Compartir Pantalla y Audio (Iniciar Clase)</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Editor docente de Reto / Código Auditable en Tiempo Real */}
+          {isTeacher && showCodeEditor && !isExpanded && (
+            <form
+              onSubmit={(e) => void handlePublishChallenge(e)}
+              className="p-4 rounded-xl bg-[#0d111a]/80 backdrop-blur-md border border-cyan-500/30 space-y-3 shrink-0"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-cyan-300 flex items-center gap-1.5">
+                  <Code2 className="w-4 h-4" />
+                  <span>Publicar Fragmento / Reto Auditable en Vivo</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowCodeEditor(false)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <input
+                type="text"
+                value={challengeTitleDraft}
+                onChange={(e) => setChallengeTitleDraft(e.target.value)}
+                placeholder="Título del reto (ej. Encuentra el bug de concurrencia)"
+                className="w-full bg-[#05070d] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500"
+              />
+
+              <textarea
+                rows={4}
+                required
+                value={challengeCodeDraft}
+                onChange={(e) => setChallengeCodeDraft(e.target.value)}
+                placeholder="Pega aquí el fragmento de código para que los alumnos lo auditen en vivo..."
+                className="w-full bg-[#05070d] border border-white/10 rounded-lg p-3 text-xs font-mono text-cyan-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500"
+              />
+
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-medium transition-colors"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Enviar a toda la sala</span>
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Bloque visible de Código Auditable en Tiempo Real */}
+          {codeChallenge && !isExpanded && (
+            <div className="rounded-xl bg-[#0d111a]/80 backdrop-blur-md border border-white/10 overflow-hidden shrink-0">
+              <div className="px-4 py-2.5 border-b border-white/10 bg-[#121722] flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Code2 className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <span className="text-xs font-semibold text-white truncate">
+                    {codeChallenge.title}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void handleCopyChallenge()}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-mono text-gray-200 transition-colors shrink-0"
+                >
+                  {copiedCode ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="text-emerald-300">Copiado</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Copiar código</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <pre className="p-4 text-xs font-mono text-cyan-100 bg-[#05070d]/90 overflow-x-auto leading-relaxed">
+                <code>{codeChallenge.code}</code>
+              </pre>
             </div>
           )}
         </div>
