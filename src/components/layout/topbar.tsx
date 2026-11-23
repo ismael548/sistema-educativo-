@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Bell, Search, Menu, X, GraduationCap } from "lucide-react";
+import { Bell, Search, Menu, X } from "lucide-react";
 
 interface TopbarProps {
   title?: string;
@@ -33,9 +33,11 @@ export function Topbar({
 
         {/* Logo compacto en móvil (< 768px) */}
         <Link href="/student" className="flex items-center gap-2 md:hidden min-w-0">
-          <div className="w-7 h-7 rounded-lg bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 shrink-0">
-            <GraduationCap className="w-4 h-4" />
-          </div>
+          <img
+            src="/logo-noxius.jpg"
+            alt="Logo Noxius LM"
+            className="w-8 h-8 rounded-xl object-cover border border-white/10 shrink-0"
+          />
           <span className="font-bold text-white text-sm tracking-tight flex items-center gap-1 truncate">
             Noxius
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-gradient-to-r from-indigo-500/20 to-cyan-500/20 text-cyan-300 border border-indigo-500/30 font-mono">

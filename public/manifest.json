@@ -1,7 +1,7 @@
 {
   "name": "Noxius LM",
   "short_name": "Noxius LM",
-  "description": "prueba prueba Plataforma educativa de alto rendimiento con clases en vivo WebRTC, materiales en la nube y seguimiento de progreso.",
+  "description": "Plataforma educativa de alto rendimiento con clases en vivo WebRTC, materiales en la nube y seguimiento de progreso.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "any",
@@ -9,15 +9,15 @@
   "theme_color": "#4f46e5",
   "icons": [
     {
-      "src": "/icons/icon-192x192.svg",
+      "src": "/logo-noxius.jpg",
       "sizes": "192x192",
-      "type": "image/svg+xml",
+      "type": "image/jpeg",
       "purpose": "any maskable"
     },
     {
-      "src": "/icons/icon-512x512.svg",
+      "src": "/logo-noxius.jpg",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/jpeg",
       "purpose": "any maskable"
     }
   ]

@@ -2,19 +2,41 @@
 
 import React, { useEffect, useRef } from "react";
 
-interface Particle {
+interface GalaxyStar {
+  radius: number;
+  maxRadius: number;
+  angle: number;
+  angularSpeed: number;
+  size: number;
+  color: string;
+  alpha: number;
+  offsetX: number;
+  offsetY: number;
+  dispX: number;
+  dispY: number;
+}
+
+interface BackgroundStar {
   x: number;
   y: number;
-  vx: number;
-  vy: number;
-  radius: number;
+  size: number;
+  alpha: number;
+  twinkleSpeed: number;
+  phase: number;
   color: string;
 }
 
-const COLORS = [
-  "rgba(6, 182, 212, 0.25)", // Cian
-  "rgba(99, 102, 241, 0.25)", // Índigo
+const GALAXY_COLORS = [
+  "#ffffff",
+  "#ffffff",
+  "#a5d8ff",
+  "#60a5fa",
+  "#a5d8ff",
+  "#fbbf24",
+  "#fdba74",
 ];
+
+const BG_STAR_COLORS = ["#ffffff", "#a5d8ff", "#60a5fa", "#fdba74"];
 
 export function AnimatedBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -32,19 +54,77 @@ export function AnimatedBackground() {
     let height = window.innerHeight;
     let animationFrameId = 0;
 
-    const mouse = { x: -9999, y: -9999, active: false };
-    let particles: Particle[] = [];
+    let galaxyStars: GalaxyStar[] = [];
+    let bgStars: BackgroundStar[] = [];
 
-    const createParticles = () => {
-      const isMobile = width < 768;
-      const count = isMobile ? 20 : 40;
-      particles = Array.from({ length: count }, (_, idx) => ({
+    // Posición normalizada del cursor para paralaje e inclinación
+    const pointer = {
+      x: -9999,
+      y: -9999,
+      normX: 0,
+      normY: 0,
+      active: false,
+    };
+
+    const parallax = {
+      x: 0,
+      y: 0,
+      tilt: 0.72,
+    };
+
+    const initStars = () => {
+      const maxGalaxyRadius = Math.min(width, height) * (width < 768 ? 0.56 : 0.62);
+      const arms = 3;
+      const starCount = 1200;
+
+      galaxyStars = Array.from({ length: starCount }, (_, i) => {
+        const armIndex = i % arms;
+        // Distribución concentrada hacia el núcleo y expandida en los brazos
+        const t = Math.pow(Math.random(), 1.35);
+        const radius = t * maxGalaxyRadius;
+        const normalizedR = radius / Math.max(maxGalaxyRadius, 1);
+
+        // Espiral logarítmica + dispersión orgánica creciente con el radio
+        const armBaseAngle = (armIndex * Math.PI * 2) / arms;
+        const spiralTwist = Math.log(1 + normalizedR * 5.2) * 2.55;
+        const scatter = (Math.random() - 0.5) * (0.42 + normalizedR * 0.75);
+        const angle = armBaseAngle + spiralTwist + scatter;
+
+        // Estrellas interiores orbitan más rápido que las exteriores
+        const angularSpeed = 0.00055 + 0.00145 / (0.25 + normalizedR * 1.8);
+
+        // Núcleo más blanco/dorado cálido, brazos más azul hielo
+        let color = GALAXY_COLORS[Math.floor(Math.random() * GALAXY_COLORS.length)];
+        if (normalizedR < 0.16 && Math.random() < 0.7) {
+          color = Math.random() < 0.65 ? "#ffffff" : "#fdba74";
+        } else if (normalizedR > 0.45 && Math.random() < 0.65) {
+          color = Math.random() < 0.5 ? "#a5d8ff" : "#60a5fa";
+        }
+
+        return {
+          radius,
+          maxRadius: maxGalaxyRadius,
+          angle,
+          angularSpeed,
+          size: normalizedR < 0.2 ? 1.1 + Math.random() * 1.4 : 0.75 + Math.random() * 1.35,
+          color,
+          alpha: 0.42 + Math.random() * 0.58,
+          offsetX: (Math.random() - 0.5) * (10 + normalizedR * 28),
+          offsetY: (Math.random() - 0.5) * (10 + normalizedR * 28),
+          dispX: 0,
+          dispY: 0,
+        };
+      });
+
+      // ~150 estrellas lejanas de fondo
+      bgStars = Array.from({ length: 150 }, () => ({
         x: Math.random() * width,
         y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 0.35,
-        vy: (Math.random() - 0.5) * 0.35,
-        radius: 1.5 + Math.random() * 1.4,
-        color: COLORS[idx % COLORS.length],
+        size: 0.5 + Math.random() * 1.2,
+        alpha: 0.18 + Math.random() * 0.45,
+        twinkleSpeed: 0.01 + Math.random() * 0.025,
+        phase: Math.random() * Math.PI * 2,
+        color: BG_STAR_COLORS[Math.floor(Math.random() * BG_STAR_COLORS.length)],
       }));
     };
 
@@ -57,93 +137,155 @@ export function AnimatedBackground() {
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      createParticles();
+      initStars();
     };
 
-    const drawFrame = (animate: boolean) => {
-      ctx.clearRect(0, 0, width, height);
+    const renderFrame = (animate: boolean, time: number) => {
+      // Fondo espacial profundo #05070d
+      ctx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = "#05070d";
+      ctx.fillRect(0, 0, width, height);
 
-      const maxLinkDist = width < 768 ? 105 : 135;
-      const maxMouseDist = 160;
+      // Paralaje e inclinación suave (lerp) hacia el cursor
+      const targetParallaxX = pointer.active ? pointer.normX * 28 : 0;
+      const targetParallaxY = pointer.active ? pointer.normY * 22 : 0;
+      const targetTilt = pointer.active ? 0.72 + pointer.normY * 0.12 : 0.72;
 
-      for (let i = 0; i < particles.length; i++) {
-        const p = particles[i];
+      if (animate) {
+        parallax.x += (targetParallaxX - parallax.x) * 0.05;
+        parallax.y += (targetParallaxY - parallax.y) * 0.05;
+        parallax.tilt += (targetTilt - parallax.tilt) * 0.05;
+      }
+
+      const centerX = width * 0.5 + parallax.x;
+      const centerY = height * 0.44 + parallax.y;
+
+      // 1. Estrellas lejanas de fondo
+      for (let i = 0; i < bgStars.length; i++) {
+        const s = bgStars[i];
+        const twinkle = animate
+          ? 0.65 + 0.35 * Math.sin(time * s.twinkleSpeed + s.phase)
+          : 1;
+        ctx.globalAlpha = s.alpha * twinkle;
+        ctx.fillStyle = s.color;
+        ctx.beginPath();
+        ctx.arc(s.x + parallax.x * 0.25, s.y + parallax.y * 0.25, s.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Brillo aditivo para el núcleo y cúmulos estelares
+      ctx.globalCompositeOperation = "lighter";
+
+      // 2. Núcleo central brillante (radialGradient blanco-azulado intenso)
+      const coreRadius = Math.min(width, height) * 0.24;
+      const coreGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, coreRadius);
+      coreGrad.addColorStop(0, "rgba(255, 255, 255, 0.55)");
+      coreGrad.addColorStop(0.18, "rgba(165, 216, 255, 0.28)");
+      coreGrad.addColorStop(0.48, "rgba(96, 165, 250, 0.10)");
+      coreGrad.addColorStop(1, "rgba(5, 7, 13, 0)");
+
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = coreGrad;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, coreRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 3. Partículas de los 3 brazos espirales logarítmicos
+      const interactionRadius = 140;
+      const galaxyRotationTilt = -0.22; // Ligera inclinación diagonal estética
+      const cosRot = Math.cos(galaxyRotationTilt);
+      const sinRot = Math.sin(galaxyRotationTilt);
+
+      for (let i = 0; i < galaxyStars.length; i++) {
+        const star = galaxyStars[i];
 
         if (animate) {
-          p.x += p.vx;
-          p.y += p.vy;
-
-          if (p.x < 0 || p.x > width) p.vx *= -1;
-          if (p.y < 0 || p.y > height) p.vy *= -1;
+          star.angle += star.angularSpeed;
         }
 
-        // Dibujar partícula
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.fillStyle = p.color;
-        ctx.fill();
+        // Coordenadas locales en el plano de la galaxia inclinada
+        const lx = Math.cos(star.angle) * star.radius + star.offsetX;
+        const ly = (Math.sin(star.angle) * star.radius + star.offsetY) * parallax.tilt;
 
-        // Conectar con partículas cercanas
-        for (let j = i + 1; j < particles.length; j++) {
-          const other = particles[j];
-          const dx = p.x - other.x;
-          const dy = p.y - other.y;
+        // Rotación diagonal sutil de la galaxia completa
+        const rx = lx * cosRot - ly * sinRot;
+        const ry = lx * sinRot + ly * cosRot;
+
+        const baseX = centerX + rx;
+        const baseY = centerY + ry;
+
+        // Onda gravitacional / repulsión elástica suave cerca del cursor (~140 px)
+        if (animate && pointer.active) {
+          const dx = baseX + star.dispX - pointer.x;
+          const dy = baseY + star.dispY - pointer.y;
           const dist = Math.hypot(dx, dy);
 
-          if (dist < maxLinkDist) {
-            const alpha = (1 - dist / maxLinkDist) * 0.14;
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(other.x, other.y);
-            ctx.strokeStyle = `rgba(99, 102, 241, ${alpha.toFixed(3)})`;
-            ctx.lineWidth = 0.8;
-            ctx.stroke();
+          if (dist > 0.001 && dist < interactionRadius) {
+            const force = (1 - dist / interactionRadius) * 10.5;
+            star.dispX += (dx / dist) * force;
+            star.dispY += (dy / dist) * force;
           }
         }
 
-        // Conectar suavemente con el cursor del mouse
-        if (mouse.active) {
-          const mdx = p.x - mouse.x;
-          const mdy = p.y - mouse.y;
-          const mDist = Math.hypot(mdx, mdy);
-
-          if (mDist < maxMouseDist) {
-            const alpha = (1 - mDist / maxMouseDist) * 0.22;
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(mouse.x, mouse.y);
-            ctx.strokeStyle = `rgba(6, 182, 212, ${alpha.toFixed(3)})`;
-            ctx.lineWidth = 0.9;
-            ctx.stroke();
-          }
+        // Retorno elástico gradual a la órbita original
+        if (animate) {
+          star.dispX *= 0.9;
+          star.dispY *= 0.9;
         }
+
+        const drawX = baseX + star.dispX;
+        const drawY = baseY + star.dispY;
+
+        ctx.globalAlpha = star.alpha;
+        ctx.fillStyle = star.color;
+        ctx.beginPath();
+        ctx.arc(drawX, drawY, star.size, 0, Math.PI * 2);
+        ctx.fill();
       }
+
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
     };
 
+    let frameTick = 0;
     const loop = () => {
-      drawFrame(true);
+      frameTick += 1;
+      renderFrame(true, frameTick);
       animationFrameId = window.requestAnimationFrame(loop);
     };
 
-    const handleMouseMove = (e: MouseEvent) => {
-      mouse.x = e.clientX;
-      mouse.y = e.clientY;
-      mouse.active = true;
+    const updatePointer = (clientX: number, clientY: number) => {
+      pointer.x = clientX;
+      pointer.y = clientY;
+      pointer.normX = (clientX / Math.max(width, 1) - 0.5) * 2;
+      pointer.normY = (clientY / Math.max(height, 1) - 0.5) * 2;
+      pointer.active = true;
     };
 
-    const handleMouseLeave = () => {
-      mouse.active = false;
+    const handleMouseMove = (e: MouseEvent) => {
+      updatePointer(e.clientX, e.clientY);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        updatePointer(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    };
+
+    const handlePointerLeave = () => {
+      pointer.active = false;
     };
 
     resizeCanvas();
 
     if (prefersReducedMotion) {
-      // Un solo cuadro estático si el usuario prefiere movimiento reducido
-      drawFrame(false);
+      renderFrame(false, 0);
     } else {
       animationFrameId = window.requestAnimationFrame(loop);
       window.addEventListener("mousemove", handleMouseMove, { passive: true });
-      window.addEventListener("mouseleave", handleMouseLeave);
+      window.addEventListener("touchmove", handleTouchMove, { passive: true });
+      window.addEventListener("mouseleave", handlePointerLeave);
+      window.addEventListener("touchend", handlePointerLeave);
     }
 
     window.addEventListener("resize", resizeCanvas);
@@ -154,7 +296,9 @@ export function AnimatedBackground() {
       }
       window.removeEventListener("resize", resizeCanvas);
       window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseleave", handleMouseLeave);
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("mouseleave", handlePointerLeave);
+      window.removeEventListener("touchend", handlePointerLeave);
     };
   }, []);
 
@@ -162,7 +306,7 @@ export function AnimatedBackground() {
     <canvas
       ref={canvasRef}
       aria-hidden="true"
-      className="pointer-events-none fixed inset-0 z-0"
+      className="fixed inset-0 w-full h-full pointer-events-none z-0"
     />
   );
 }

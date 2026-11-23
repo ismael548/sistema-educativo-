@@ -4,11 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  GraduationCap,
   ArrowRight,
-  Video,
-  FileText,
-  BookOpen,
   KeyRound,
   Lock,
   X,
@@ -78,32 +74,19 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0d0f12] text-gray-100 relative overflow-hidden flex flex-col">
-      {/* Capa 1: Aurora Boreal Sutil (orbes difuminados acelerados por GPU) */}
-      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.035]"
-          style={{
-            backgroundImage:
-              "linear-gradient(to right, #ffffff 1px, transparent 1px), linear-gradient(to bottom, #ffffff 1px, transparent 1px)",
-            backgroundSize: "48px 48px",
-          }}
-        />
-        <div className="absolute -top-32 -left-24 w-[420px] h-[420px] rounded-full bg-indigo-600 blur-[120px] opacity-20 animate-float-slow" />
-        <div className="absolute top-1/4 -right-24 w-[380px] h-[380px] rounded-full bg-cyan-500 blur-[120px] opacity-20 animate-float-slow-reverse" />
-        <div className="absolute -bottom-36 left-1/3 w-[440px] h-[440px] rounded-full bg-indigo-600 blur-[120px] opacity-15 animate-float-slow" />
-      </div>
-
-      {/* Capa 2: Partículas / Nodos Conectados en Canvas */}
+    <div className="min-h-screen bg-[#05070d] text-gray-100 relative overflow-hidden flex flex-col">
+      {/* Galaxia Espiral Interactiva en Canvas */}
       <AnimatedBackground />
 
       {/* 1. Navbar Superior Minimalista (Solo Logo + Acceso Docente) */}
-      <header className="relative z-10 border-b border-[#232a35]/80 bg-[#0d0f12]/80 backdrop-blur-md">
+      <header className="relative z-10 border-b border-white/10 bg-[#0d111a]/70 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#4f46e5]/25 to-[#06b6d4]/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300">
-              <GraduationCap className="w-5 h-5" />
-            </div>
+            <img
+              src="/logo-noxius.jpg"
+              alt="Logo Noxius LM"
+              className="w-9 h-9 rounded-xl object-cover border border-white/10 shrink-0"
+            />
             <div>
               <div className="flex items-center gap-1.5 font-bold text-white tracking-tight text-base">
                 <span>Noxius</span>
@@ -131,21 +114,21 @@ export default function HomePage() {
       {/* Contenido Principal */}
       <main className="relative z-10 flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-14 sm:py-20 flex flex-col justify-center space-y-16">
         {/* 2. Sección Hero Moderna con Entrada Directa Obligatoria por Nombre */}
-        <section className="text-center max-w-3xl mx-auto space-y-6">
+        <section className="text-center max-w-4xl mx-auto space-y-6">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#13161c] border border-indigo-500/30 text-cyan-300 text-xs font-medium">
             <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
             <span>Acceso Directo • Sin Registros ni Contraseñas</span>
           </div>
 
-          <h1 className="font-sans text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
-            Domina la Tecnología y la Ingeniería con{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-indigo-300 to-cyan-400">
-              Clases Prácticas
+          <h1 className="font-sans text-3xl sm:text-5xl md:text-6xl font-bold text-white tracking-tight max-w-4xl mx-auto leading-tight">
+            Domina lo que realmente necesitas y descubre lo inimaginable con{" "}
+            <span className="bg-gradient-to-r from-indigo-400 via-sky-400 to-emerald-400 bg-clip-text text-transparent">
+              Noxius LM
             </span>
           </h1>
 
           <p className="text-sm sm:text-base text-gray-400 max-w-2xl mx-auto leading-relaxed">
-            Accede al instante a lecciones en video, sesiones en vivo con pantalla compartida, guías descargables y entrega de proyectos.
+            Te presentamos a Noxius con un método indistinguible que rompe todo lo que sabes y quieres aprender.
           </p>
 
           {/* Tarjeta de Ingreso Rápido */}
@@ -153,7 +136,7 @@ export default function HomePage() {
             <form
               onSubmit={handleStudentEnter}
               noValidate
-              className="relative z-20 w-full p-2 rounded-2xl bg-[#13161c]/90 border border-[#232a35] shadow-surface flex flex-col sm:flex-row gap-2"
+              className="relative z-20 w-full p-2 rounded-2xl bg-[#0d111a]/70 backdrop-blur-md border border-white/10 shadow-surface flex flex-col sm:flex-row gap-2"
             >
               <input
                 type="text"
@@ -165,7 +148,7 @@ export default function HomePage() {
                 }}
                 maxLength={40}
                 placeholder="Escribe tu nombre para comenzar..."
-                className="w-full flex-1 bg-[#1a1f26] border border-[#232a35] focus:border-indigo-500 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none transition-colors"
+                className="w-full flex-1 bg-[#0d111a]/80 border border-white/10 focus:border-indigo-500 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-400 focus:outline-none transition-colors"
               />
               <button
                 type="submit"
@@ -185,37 +168,76 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* 3. Tres Tarjetas de Beneficios Reales */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div className="p-6 rounded-2xl bg-[#13161c] border border-[#232a35] space-y-2.5">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
-              <BookOpen className="w-5 h-5" />
+        {/* 3. Narrativa Visual de 3 Etapas Evolutivas */}
+        <section className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto w-full">
+          {/* Tarjeta 1: ANTES */}
+          <article className="bg-[#0d111a]/70 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden group hover:border-sky-500/40 transition-all duration-300 flex flex-col">
+            <div className="relative h-48 w-full overflow-hidden">
+              <img
+                src="/era-antes.jpg"
+                alt="La Era de la Revolución Industrial"
+                className="h-48 w-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0d111a] via-transparent to-transparent" />
+              <span className="absolute top-3 left-3 px-3 py-1 rounded-full text-[11px] font-mono font-semibold tracking-wider uppercase bg-amber-500/15 text-amber-300 border border-amber-400/30 backdrop-blur-md">
+                ANTES
+              </span>
             </div>
-            <h3 className="text-base font-semibold text-white">1. Lecciones Estructuradas</h3>
-            <p className="text-xs text-gray-400 leading-relaxed">
-              Videos en alta definición organizados por módulos con seguimiento de progreso.
-            </p>
-          </div>
+            <div className="p-6 pt-3 space-y-2 flex-1">
+              <h3 className="text-base font-semibold text-white">
+                La Era de la Revolución Industrial
+              </h3>
+              <p className="text-xs text-gray-300 leading-relaxed">
+                El conocimiento se transmitía de forma rígida, estandarizada y mecánica para preparar operarios de procesos repetitivos.
+              </p>
+            </div>
+          </article>
 
-          <div className="p-6 rounded-2xl bg-[#13161c] border border-[#232a35] space-y-2.5">
-            <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
-              <Video className="w-5 h-5" />
+          {/* Tarjeta 2: AHORA */}
+          <article className="bg-[#0d111a]/70 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden group hover:border-sky-500/40 transition-all duration-300 flex flex-col">
+            <div className="relative h-48 w-full overflow-hidden">
+              <img
+                src="/era-ahora.jpg"
+                alt="La Era de la Inteligencia Artificial"
+                className="h-48 w-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0d111a] via-transparent to-transparent" />
+              <span className="absolute top-3 left-3 px-3 py-1 rounded-full text-[11px] font-mono font-semibold tracking-wider uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 backdrop-blur-md">
+                AHORA
+              </span>
             </div>
-            <h3 className="text-base font-semibold text-white">2. Aula Virtual en Vivo</h3>
-            <p className="text-xs text-gray-400 leading-relaxed">
-              Transmisión directa en tiempo real con zoom interactivo y chat con el docente.
-            </p>
-          </div>
+            <div className="p-6 pt-3 space-y-2 flex-1">
+              <h3 className="text-base font-semibold text-white">
+                La Era de la Inteligencia Artificial
+              </h3>
+              <p className="text-xs text-gray-300 leading-relaxed">
+                Hoy tienes acceso inmediato a asistentes y chatbots de IA capaces de responder al instante, pero saber dirigirlos marca la diferencia.
+              </p>
+            </div>
+          </article>
 
-          <div className="p-6 rounded-2xl bg-[#13161c] border border-[#232a35] space-y-2.5">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-              <FileText className="w-5 h-5" />
+          {/* Tarjeta 3: LUEGO Y PARA SIEMPRE */}
+          <article className="bg-[#0d111a]/70 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden group hover:border-sky-500/40 transition-all duration-300 flex flex-col">
+            <div className="relative h-48 w-full overflow-hidden">
+              <img
+                src="/era-siempre.jpg"
+                alt="Un Ser en Evolución Continua"
+                className="h-48 w-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0d111a] via-transparent to-transparent" />
+              <span className="absolute top-3 left-3 px-3 py-1 rounded-full text-[11px] font-mono font-semibold tracking-wider uppercase bg-gradient-to-r from-emerald-500/25 to-violet-500/25 text-emerald-300 border border-emerald-400/40 backdrop-blur-md">
+                LUEGO Y PARA SIEMPRE
+              </span>
             </div>
-            <h3 className="text-base font-semibold text-white">3. Prácticas y Recursos</h3>
-            <p className="text-xs text-gray-400 leading-relaxed">
-              Guías en Google Colab/Drive y entrega directa de proyectos por enlace.
-            </p>
-          </div>
+            <div className="p-6 pt-3 space-y-2 flex-1">
+              <h3 className="text-base font-semibold text-white">
+                Un Ser en Evolución Continua
+              </h3>
+              <p className="text-xs text-gray-300 leading-relaxed">
+                Con Noxius LM desarrollas criterio arquitectónico, pensamiento crítico y dominio tecnológico para evolucionar sin límites.
+              </p>
+            </div>
+          </article>
         </section>
       </main>
 
