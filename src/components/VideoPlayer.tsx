@@ -324,7 +324,7 @@ export function VideoPlayer({ videoUrl, title }: VideoPlayerProps) {
       {/* Marco limpio del reproductor sin overlays ni capas que oscurezcan o intercepten toques */}
       <div
         ref={playerContainerRef}
-        className="w-full aspect-video bg-black rounded-xl overflow-hidden border border-[#232a35] shadow-surface"
+        className="relative w-full aspect-video overflow-hidden rounded-xl bg-black border border-[#232a35] shadow-surface"
       >
         {provider === "youtube" && youtubeId ? (
           <div
@@ -336,8 +336,12 @@ export function VideoPlayer({ videoUrl, title }: VideoPlayerProps) {
           <iframe
             src={embedUrl}
             title={title}
-            className="w-full h-full border-0 pointer-events-auto"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+            className="w-full h-full border-0 block pointer-events-auto"
+            allow={
+              provider === "drive"
+                ? "autoplay; fullscreen; picture-in-picture"
+                : "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+            }
             allowFullScreen
             loading="lazy"
             referrerPolicy="strict-origin-when-cross-origin"
@@ -404,7 +408,7 @@ export function VideoPlayer({ videoUrl, title }: VideoPlayerProps) {
           </button>
         </div>
 
-        <div className="flex items-center gap-3 text-[11px] text-gray-500 ml-auto">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[11px] text-gray-500 ml-auto">
           <span className="font-mono uppercase tracking-wider text-indigo-400">
             Fuente:{" "}
             {provider === "youtube"
@@ -417,10 +421,14 @@ export function VideoPlayer({ videoUrl, title }: VideoPlayerProps) {
             href={videoUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-gray-400 hover:text-indigo-300 transition-colors"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#13161c] hover:bg-[#1a1f26] border border-[#232a35] text-gray-200 hover:text-indigo-300 transition-colors touch-manipulation"
           >
-            <span>Abrir enlace original</span>
-            <ExternalLink className="w-3 h-3" />
+            <span>
+              {provider === "drive"
+                ? "Abrir en Drive / Ver en pantalla completa nativa"
+                : "Abrir enlace original"}
+            </span>
+            <ExternalLink className="w-3 h-3 shrink-0" />
           </a>
         </div>
       </div>
