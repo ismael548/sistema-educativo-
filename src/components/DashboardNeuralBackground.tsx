@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from "react";
 
 interface PanoramicNode {
+  // Normalized 3D coordinates spanning full viewport (-1.15..1.15)
   nx: number;
   ny: number;
   nz: number;
@@ -18,9 +19,10 @@ interface PanoramicNode {
 }
 
 interface GalacticParticle {
-  streamPos: number;
-  spread: number;
-  depth: number;
+  // Diagonal galactic stream across full viewport
+  streamPos: number; // -1.3 .. 1.3 along diagonal
+  spread: number; // perpendicular offset
+  depth: number; // -1 .. 1
   speed: number;
   size: number;
   color: string;
@@ -38,18 +40,22 @@ interface EdgePulse {
 const NODE_COUNT = 220;
 const GALAXY_PARTICLE_COUNT = 500;
 
-const STELLAR_PALETTE = [
-  "#ffffff",
-  "#ffffff",
-  "#ffffff",
-  "#e0f2fe",
-  "#7dd3fc",
+const COSMIC_PALETTE = [
+  "#38bdf8", // cian eléctrico
+  "#22d3ee", // cian brillante
+  "#6366f1", // índigo profundo
+  "#a855f7", // violeta luminoso
+  "#d946ef", // destello magenta
+  "#f0f9ff", // núcleo blanco-azulado
 ];
 
 const HALO_MAP: Record<string, string> = {
-  "#ffffff": "rgba(255, 255, 255, 0.55)",
-  "#e0f2fe": "rgba(224, 242, 254, 0.48)",
-  "#7dd3fc": "rgba(125, 211, 252, 0.42)",
+  "#38bdf8": "rgba(56, 189, 248, 0.35)",
+  "#22d3ee": "rgba(34, 211, 238, 0.35)",
+  "#6366f1": "rgba(99, 102, 241, 0.35)",
+  "#a855f7": "rgba(168, 85, 247, 0.35)",
+  "#d946ef": "rgba(217, 70, 239, 0.32)",
+  "#f0f9ff": "rgba(240, 249, 255, 0.4)",
 };
 
 function rotatePerspective(
@@ -102,15 +108,21 @@ export function DashboardNeuralBackground() {
 
     resizeCanvas();
 
-    // 1. Constelación Neuronal Panorámica en 3D (~220 nodos blanco estelar en toda la pantalla)
+    // 1. Constelación Neuronal Panorámica en 3D (~220 nodos distribuidos por toda la pantalla)
     const nodes: PanoramicNode[] = Array.from({ length: NODE_COUNT }, (_, i) => {
       const colorRoll = Math.random();
       const color =
-        colorRoll < 0.62
-          ? "#ffffff"
-          : colorRoll < 0.85
-            ? "#e0f2fe"
-            : "#7dd3fc";
+        colorRoll < 0.26
+          ? "#38bdf8"
+          : colorRoll < 0.48
+            ? "#22d3ee"
+            : colorRoll < 0.68
+              ? "#6366f1"
+              : colorRoll < 0.85
+                ? "#a855f7"
+                : colorRoll < 0.94
+                  ? "#d946ef"
+                  : "#f0f9ff";
 
       return {
         nx: (Math.random() - 0.5) * 2.24,
@@ -121,23 +133,25 @@ export function DashboardNeuralBackground() {
         vz: (Math.random() - 0.5) * 0.00045,
         color,
         haloColor: HALO_MAP[color],
-        baseRadius: i % 5 === 0 ? 2.1 + Math.random() * 1.4 : 1.1 + Math.random() * 1.3,
-        hasHalo: i % 4 === 0,
+        baseRadius: i % 6 === 0 ? 2.1 + Math.random() * 1.4 : 1.0 + Math.random() * 1.3,
+        hasHalo: i % 5 === 0,
         pulsePhase: Math.random() * Math.PI * 2,
         pulseSpeed: 1.4 + Math.random() * 2.0,
       };
     });
 
+    // Pulsos de luz que recorren las conexiones cercanas
     const edgePulses = new Map<string, EdgePulse>();
 
-    // 2. Corriente Galáctica / Nebulosa de Partículas (~500 estrellas blanco brillante en diagonal)
+    // 2. Corriente Galáctica / Nebulosa de Partículas (~500 partículas cruzando en diagonal)
     const galaxyParticles: GalacticParticle[] = Array.from(
       { length: GALAXY_PARTICLE_COUNT },
       (_, i) => {
-        const color = STELLAR_PALETTE[i % STELLAR_PALETTE.length];
+        const color = COSMIC_PALETTE[i % COSMIC_PALETTE.length];
+        // Distribución concentrada a lo largo de la banda diagonal + dispersión periférica
         const inBand = Math.random() < 0.72;
         const spread = inBand
-          ? (Math.random() - 0.5) * 0.62 + (Math.random() - 0.5) * 0.25
+          ? (Math.random() - 0.5) * 0.58 + (Math.random() - 0.5) * 0.25
           : (Math.random() - 0.5) * 2.1;
 
         return {
@@ -145,10 +159,10 @@ export function DashboardNeuralBackground() {
           spread,
           depth: (Math.random() - 0.5) * 1.8,
           speed: 0.022 + Math.random() * 0.045,
-          size: i % 10 === 0 ? 1.8 + Math.random() * 1.4 : 0.75 + Math.random() * 1.35,
+          size: i % 12 === 0 ? 1.8 + Math.random() * 1.4 : 0.65 + Math.random() * 1.35,
           color,
-          alpha: 0.5 + Math.random() * 0.45,
-          hasHalo: i % 10 === 0,
+          alpha: 0.35 + Math.random() * 0.65,
+          hasHalo: i % 14 === 0,
           twinklePhase: Math.random() * Math.PI * 2,
           twinkleSpeed: 1.2 + Math.random() * 2.2,
         };
@@ -205,53 +219,53 @@ export function DashboardNeuralBackground() {
       lastTime = now;
       const elapsed = prefersReducedMotion ? 0 : (now - startTime) * 0.001;
 
+      // Suave inclinación 3D hacia el puntero
       pointer.tiltX += (pointer.normY * 0.18 - pointer.tiltX) * 0.05;
       pointer.tiltY += (pointer.normX * 0.24 - pointer.tiltY) * 0.05;
 
       // 1. Fondo espacial profundo idéntico a la portada (#05070d)
       ctx.globalCompositeOperation = "source-over";
       ctx.globalAlpha = 1;
-      ctx.shadowBlur = 0;
       ctx.fillStyle = "#05070d";
       ctx.fillRect(0, 0, width, height);
 
-      // Brillo aditivo estelar
+      // Brillo aditivo idéntico a la galaxia de inicio
       ctx.globalCompositeOperation = "lighter";
 
       const halfW = width * 0.5;
       const halfH = height * 0.5;
       const fov = Math.max(width, height) * 1.15;
 
-      // Resplandores estelares suaves blanco-azulado en diagonal
+      // Resplandores nebulosos ambientales en diagonal (cian eléctrico + índigo/violeta)
       const neb1 = ctx.createRadialGradient(
-        width * 0.28 - pointer.tiltY * 80,
-        height * 0.28 - pointer.tiltX * 80,
+        width * 0.22 - pointer.tiltY * 80,
+        height * 0.24 - pointer.tiltX * 80,
         0,
-        width * 0.28 - pointer.tiltY * 80,
-        height * 0.28 - pointer.tiltX * 80,
+        width * 0.22 - pointer.tiltY * 80,
+        height * 0.24 - pointer.tiltX * 80,
         Math.max(width, height) * 0.52
       );
-      neb1.addColorStop(0, "rgba(224, 242, 254, 0.10)");
-      neb1.addColorStop(0.42, "rgba(125, 211, 252, 0.05)");
+      neb1.addColorStop(0, "rgba(56, 189, 248, 0.11)");
+      neb1.addColorStop(0.45, "rgba(99, 102, 241, 0.05)");
       neb1.addColorStop(1, "rgba(5, 7, 13, 0)");
       ctx.fillStyle = neb1;
       ctx.fillRect(0, 0, width, height);
 
       const neb2 = ctx.createRadialGradient(
-        width * 0.72 + pointer.tiltY * 80,
-        height * 0.72 + pointer.tiltX * 80,
+        width * 0.78 + pointer.tiltY * 80,
+        height * 0.76 + pointer.tiltX * 80,
         0,
-        width * 0.72 + pointer.tiltY * 80,
-        height * 0.72 + pointer.tiltX * 80,
-        Math.max(width, height) * 0.54
+        width * 0.78 + pointer.tiltY * 80,
+        height * 0.76 + pointer.tiltX * 80,
+        Math.max(width, height) * 0.55
       );
-      neb2.addColorStop(0, "rgba(255, 255, 255, 0.08)");
-      neb2.addColorStop(0.45, "rgba(125, 211, 252, 0.04)");
+      neb2.addColorStop(0, "rgba(168, 85, 247, 0.12)");
+      neb2.addColorStop(0.42, "rgba(217, 70, 239, 0.05)");
       neb2.addColorStop(1, "rgba(5, 7, 13, 0)");
       ctx.fillStyle = neb2;
       ctx.fillRect(0, 0, width, height);
 
-      // 2. Corriente Galáctica (~500 estrellas blanco estelar cruzando en diagonal)
+      // 2. Corriente Galáctica / Nebulosa de Partículas (~500 partículas diagonales de extremo a extremo)
       const diagAngle = -0.52 + Math.sin(elapsed * 0.08) * 0.04;
       const cosD = Math.cos(diagAngle);
       const sinD = Math.sin(diagAngle);
@@ -265,14 +279,17 @@ export function DashboardNeuralBackground() {
           }
         }
 
+        // Rotación sutil de la corriente alrededor del eje diagonal
         const swirl = elapsed * 0.14 + p.streamPos * 1.6;
         const localX = p.streamPos;
         const localY = p.spread + Math.sin(swirl) * 0.04;
         const localZ = p.depth + Math.cos(swirl) * 0.18;
 
+        // Rotación diagonal panorámica
         const rx = localX * cosD - localY * sinD;
         const ry = localX * sinD + localY * cosD;
 
+        // Perspectiva 3D con inclinación del cursor
         const tilted = rotatePerspective(
           rx * halfW,
           ry * halfH,
@@ -287,29 +304,29 @@ export function DashboardNeuralBackground() {
         if (sx < -40 || sx > width + 40 || sy < -40 || sy > height + 40) continue;
 
         const twinkle =
-          0.7 + 0.3 * Math.sin(elapsed * p.twinkleSpeed + p.twinklePhase);
-        const depthAlpha = Math.max(0.45, Math.min(0.95, scale * 0.92));
+          0.62 + 0.38 * Math.sin(elapsed * p.twinkleSpeed + p.twinklePhase);
+        const depthAlpha = Math.max(0.18, Math.min(1, scale * 0.85));
 
         if (p.hasHalo) {
-          const haloR = p.size * scale * 5.2;
+          const haloR = p.size * scale * 4.5;
           const haloGrad = ctx.createRadialGradient(sx, sy, 0, sx, sy, haloR);
           haloGrad.addColorStop(0, HALO_MAP[p.color]);
           haloGrad.addColorStop(1, "rgba(5, 7, 13, 0)");
-          ctx.globalAlpha = p.alpha * twinkle * depthAlpha * 0.85;
+          ctx.globalAlpha = p.alpha * twinkle * depthAlpha * 0.75;
           ctx.fillStyle = haloGrad;
           ctx.beginPath();
           ctx.arc(sx, sy, haloR, 0, Math.PI * 2);
           ctx.fill();
         }
 
-        ctx.globalAlpha = Math.min(0.95, p.alpha * twinkle * depthAlpha);
+        ctx.globalAlpha = p.alpha * twinkle * depthAlpha;
         ctx.fillStyle = p.color;
         ctx.beginPath();
-        ctx.arc(sx, sy, Math.max(0.6, p.size * scale), 0, Math.PI * 2);
+        ctx.arc(sx, sy, Math.max(0.5, p.size * scale), 0, Math.PI * 2);
         ctx.fill();
       }
 
-      // 3. Actualizar y proyectar Constelación Neuronal Panorámica (~220 nodos)
+      // 3. Actualizar y proyectar Constelación Neuronal Panorámica (~220 nodos en todo el viewport)
       const rotX = pointer.tiltX + Math.sin(elapsed * 0.12) * 0.06;
       const rotY = pointer.tiltY + Math.cos(elapsed * 0.1) * 0.08;
       const pointerRadius = Math.min(width, height) * 0.24;
@@ -350,7 +367,7 @@ export function DashboardNeuralBackground() {
         }
       }
 
-      // 4. Líneas sinápticas blanco estelar / blanco-azulado (opacidad 0.45..0.95 según profundidad)
+      // 4. Líneas sinápticas finas en degradado cian-violeta + pulsos de luz viajeros
       const maxConnectDist = Math.max(135, Math.min(width, height) * 0.17);
       const maxConnectDistSq = maxConnectDist * maxConnectDist;
 
@@ -370,28 +387,24 @@ export function DashboardNeuralBackground() {
           if (dSq < maxConnectDistSq) {
             const dist = Math.sqrt(dSq);
             const proximity = 1 - dist / maxConnectDist;
-            const depthFactor = Math.max(
-              0.45,
-              Math.min(0.95, (projScale[i] + projScale[j]) * 0.5)
-            );
             const boost = Math.max(pointerBoost[i], pointerBoost[j]);
-            const alpha = Math.min(0.95, proximity * depthFactor * (0.52 + boost * 0.43));
+            const alpha = proximity * (0.24 + boost * 0.42);
 
             const lineGrad = ctx.createLinearGradient(ax, ay, bx, by);
-            lineGrad.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
-            lineGrad.addColorStop(0.5, `rgba(224, 242, 254, ${alpha * 0.92})`);
-            lineGrad.addColorStop(1, `rgba(125, 211, 252, ${alpha * 0.88})`);
+            lineGrad.addColorStop(0, `rgba(56, 189, 248, ${alpha})`);
+            lineGrad.addColorStop(0.5, `rgba(99, 102, 241, ${alpha * 0.95})`);
+            lineGrad.addColorStop(1, `rgba(168, 85, 247, ${alpha})`);
 
             ctx.globalAlpha = 1;
-            ctx.lineWidth = 0.85 + boost * 0.75;
+            ctx.lineWidth = 0.75 + boost * 0.75;
             ctx.strokeStyle = lineGrad;
             ctx.beginPath();
             ctx.moveTo(ax, ay);
             ctx.lineTo(bx, by);
             ctx.stroke();
 
-            // Pulso luminoso blanco viajando por las conexiones
-            if ((i + j) % 4 === 0 || boost > 0.25) {
+            // Pulso luminoso viajando por algunas conexiones
+            if ((i + j) % 5 === 0 || boost > 0.25) {
               const key = `${i}-${j}`;
               let pulse = edgePulses.get(key);
               if (!pulse) {
@@ -407,10 +420,10 @@ export function DashboardNeuralBackground() {
               const px = ax + dx * pulse.t;
               const py = ay + dy * pulse.t;
 
-              ctx.globalAlpha = Math.min(0.95, proximity * (0.72 + boost * 0.25));
-              ctx.fillStyle = "#ffffff";
+              ctx.globalAlpha = proximity * (0.65 + boost * 0.35);
+              ctx.fillStyle = "#f0f9ff";
               ctx.beginPath();
-              ctx.arc(px, py, 1.5 + boost * 0.9, 0, Math.PI * 2);
+              ctx.arc(px, py, 1.35 + boost * 0.9, 0, Math.PI * 2);
               ctx.fill();
             }
 
@@ -420,7 +433,7 @@ export function DashboardNeuralBackground() {
         }
       }
 
-      // 5. Filamentos luminosos blanco estelar hacia el cursor
+      // 5. Filamentos luminosos hacia el cursor desde los nodos cercanos
       if (pointer.active) {
         for (let i = 0; i < NODE_COUNT; i++) {
           const boost = pointerBoost[i];
@@ -429,12 +442,12 @@ export function DashboardNeuralBackground() {
           const nx = projX[i];
           const ny = projY[i];
           const pGrad = ctx.createLinearGradient(nx, ny, pointer.x, pointer.y);
-          pGrad.addColorStop(0, `rgba(255, 255, 255, ${Math.min(0.95, 0.45 + boost * 0.5)})`);
-          pGrad.addColorStop(0.55, `rgba(224, 242, 254, ${Math.min(0.9, 0.4 + boost * 0.45)})`);
-          pGrad.addColorStop(1, `rgba(125, 211, 252, ${Math.min(0.95, 0.45 + boost * 0.5)})`);
+          pGrad.addColorStop(0, `rgba(34, 211, 238, ${boost * 0.58})`);
+          pGrad.addColorStop(0.55, `rgba(168, 85, 247, ${boost * 0.45})`);
+          pGrad.addColorStop(1, `rgba(217, 70, 239, ${boost * 0.65})`);
 
           ctx.globalAlpha = 1;
-          ctx.lineWidth = 0.95 + boost * 0.85;
+          ctx.lineWidth = 0.85 + boost * 0.8;
           ctx.strokeStyle = pGrad;
           ctx.beginPath();
           ctx.moveTo(nx, ny);
@@ -442,6 +455,7 @@ export function DashboardNeuralBackground() {
           ctx.stroke();
         }
 
+        // Halo sutil en la posición del cursor
         const cursorHalo = ctx.createRadialGradient(
           pointer.x,
           pointer.y,
@@ -450,8 +464,8 @@ export function DashboardNeuralBackground() {
           pointer.y,
           95
         );
-        cursorHalo.addColorStop(0, "rgba(255, 255, 255, 0.22)");
-        cursorHalo.addColorStop(0.45, "rgba(125, 211, 252, 0.10)");
+        cursorHalo.addColorStop(0, "rgba(56, 189, 248, 0.16)");
+        cursorHalo.addColorStop(0.45, "rgba(168, 85, 247, 0.08)");
         cursorHalo.addColorStop(1, "rgba(5, 7, 13, 0)");
         ctx.globalAlpha = 1;
         ctx.fillStyle = cursorHalo;
@@ -460,8 +474,7 @@ export function DashboardNeuralBackground() {
         ctx.fill();
       }
 
-      // 6. Dibujar los ~220 nodos blanco brillante estelar con shadowBlur / halo
-      ctx.shadowColor = "rgba(224, 242, 254, 0.9)";
+      // 6. Dibujar los ~220 nodos luminosos con halo suave
       for (let i = 0; i < NODE_COUNT; i++) {
         const n = nodes[i];
         const sx = projX[i];
@@ -471,32 +484,28 @@ export function DashboardNeuralBackground() {
         const scale = projScale[i];
         const boost = pointerBoost[i];
         const pulse =
-          0.78 + 0.22 * Math.sin(elapsed * n.pulseSpeed + n.pulsePhase);
+          0.72 + 0.28 * Math.sin(elapsed * n.pulseSpeed + n.pulsePhase);
         const radius = n.baseRadius * scale * (1 + boost * 0.75);
-        const depthOpacity = Math.max(0.45, Math.min(0.95, scale * 0.9));
 
         if (n.hasHalo || boost > 0.2) {
-          const haloRadius = radius * (4.8 + boost * 2.5);
+          const haloRadius = radius * (4.4 + boost * 2.5);
           const halo = ctx.createRadialGradient(sx, sy, 0, sx, sy, haloRadius);
           halo.addColorStop(0, n.haloColor);
           halo.addColorStop(1, "rgba(5, 7, 13, 0)");
-          ctx.shadowBlur = 0;
-          ctx.globalAlpha = Math.min(0.95, (0.62 + boost * 0.33) * pulse);
+          ctx.globalAlpha = Math.min(1, (0.55 + boost * 0.45) * pulse);
           ctx.fillStyle = halo;
           ctx.beginPath();
           ctx.arc(sx, sy, haloRadius, 0, Math.PI * 2);
           ctx.fill();
         }
 
-        ctx.shadowBlur = n.hasHalo || boost > 0.25 ? 10 + boost * 8 : 4;
-        ctx.globalAlpha = Math.min(0.95, depthOpacity * pulse + boost * 0.25);
-        ctx.fillStyle = boost > 0.35 ? "#ffffff" : n.color;
+        ctx.globalAlpha = Math.min(1, (0.65 + boost * 0.35) * pulse);
+        ctx.fillStyle = boost > 0.45 ? "#f0f9ff" : n.color;
         ctx.beginPath();
         ctx.arc(sx, sy, radius, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      ctx.shadowBlur = 0;
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = "source-over";
 
