@@ -9,15 +9,19 @@ export interface LastWatchedLesson {
   title: string;
 }
 
+export const DISCORD_INVITE_URL = "https://discord.gg/noxius-lm";
+
 interface RoleContextValue {
   role: AppRole;
   userName: string;
+  discordUrl: string;
   isHydrated: boolean;
   hasActiveSession: boolean;
   lastWatchedLesson: LastWatchedLesson | null;
   visitedLessonIds: string[];
   completedLessonIds: string[];
   setUserName: (name: string) => void;
+  setDiscordUrl: (url: string) => void;
   verifyTeacherPin: (pin: string) => boolean;
   switchToStudent: () => void;
   logout: () => void;
@@ -34,10 +38,12 @@ const STORAGE_LEGACY_NAME_KEY = "aether_user_name";
 const STORAGE_LAST_LESSON_KEY = "aether_last_lesson";
 const STORAGE_VISITED_KEY = "aether_visited_lessons";
 const STORAGE_COMPLETED_KEY = "aether_completed_lessons";
+const STORAGE_DISCORD_KEY = "noxius_discord_url";
 
 export function RoleProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<AppRole>("student");
   const [userName, setUserNameState] = useState<string>("Estudiante");
+  const [discordUrl, setDiscordUrlState] = useState<string>(DISCORD_INVITE_URL);
   const [hasStoredName, setHasStoredName] = useState<boolean>(false);
   const [isHydrated, setIsHydrated] = useState<boolean>(false);
   const [lastWatchedLesson, setLastWatchedLesson] = useState<LastWatchedLesson | null>(null);
@@ -95,6 +101,11 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
             setCompletedLessonIds(parsedCompleted);
           }
         }
+
+        const savedDiscord = localStorage.getItem(STORAGE_DISCORD_KEY);
+        if (savedDiscord && savedDiscord.trim()) {
+          setDiscordUrlState(savedDiscord.trim());
+        }
       } catch {
         // Ignorar errores de almacenamiento en navegación privada
       } finally {
@@ -134,6 +145,16 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         sessionStorage.setItem(STORAGE_NAME_KEY, clean);
         sessionStorage.setItem(STORAGE_NAME_ALIAS_KEY, clean);
       }
+    } catch {
+      // Ignorar
+    }
+  }, []);
+
+  const setDiscordUrl = useCallback((url: string) => {
+    const clean = url.trim() || DISCORD_INVITE_URL;
+    setDiscordUrlState(clean);
+    try {
+      localStorage.setItem(STORAGE_DISCORD_KEY, clean);
     } catch {
       // Ignorar
     }
@@ -213,12 +234,14 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
       value={{
         role,
         userName,
+        discordUrl,
         isHydrated,
         hasActiveSession,
         lastWatchedLesson,
         visitedLessonIds,
         completedLessonIds,
         setUserName,
+        setDiscordUrl,
         verifyTeacherPin,
         switchToStudent,
         logout,

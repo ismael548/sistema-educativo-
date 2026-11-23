@@ -1,6 +1,14 @@
 import type { Metadata, Viewport } from "next";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { RoleProvider } from "@/components/providers/role-provider";
+
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-jakarta",
+  display: "swap",
+});
 
 const SITE_TITLE = "Noxius LM | Plataforma de Aprendizaje Práctico";
 const SITE_DESCRIPTION =
@@ -54,7 +62,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" className="dark">
-      <body className="bg-[#05070d] text-gray-100 min-h-screen overflow-x-hidden antialiased selection:bg-indigo-500 selection:text-white">
+      <body
+        className={`${plusJakarta.className} bg-[#050811] text-gray-100 min-h-screen overflow-x-hidden antialiased selection:bg-indigo-500 selection:text-white`}
+      >
         <RoleProvider>{children}</RoleProvider>
       </body>
     </html>

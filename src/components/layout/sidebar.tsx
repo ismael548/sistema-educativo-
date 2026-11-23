@@ -97,12 +97,12 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 md:w-64 bg-[#0d0f12] border-r border-[#232a35] flex flex-col h-screen select-none shrink-0 transform transition-transform duration-200 ease-out md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-72 md:w-64 bg-[#070b14]/85 backdrop-blur-xl border-r border-white/10 flex flex-col h-screen select-none shrink-0 transform transition-transform duration-200 ease-out md:static md:translate-x-0 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         {/* Brand Header */}
-        <div className="h-16 flex items-center justify-between px-6 border-b border-[#232a35]">
+        <div className="h-16 flex items-center justify-between px-6 border-b border-white/10">
           <div className="flex items-center gap-3">
             <img
               src={logoImg.src}
@@ -148,14 +148,14 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                 key={item.name}
                 href={item.href}
                 onClick={() => onClose?.()}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-r-lg text-sm font-medium transition-all ${
                   isActive
-                    ? "bg-indigo-600/15 text-indigo-300 border border-indigo-500/30"
-                    : "text-gray-400 hover:text-gray-200 hover:bg-[#13161c]"
+                    ? "border-l-2 border-cyan-400 bg-gradient-to-r from-cyan-500/15 to-transparent text-white"
+                    : "border-l-2 border-transparent text-gray-400 hover:text-gray-200 hover:bg-white/5 rounded-lg"
                 }`}
               >
                 <item.icon
-                  className={`w-4 h-4 ${isActive ? "text-indigo-400" : "text-gray-400"}`}
+                  className={`w-4 h-4 ${isActive ? "text-cyan-400" : "text-gray-400"}`}
                 />
                 {item.name}
               </Link>
