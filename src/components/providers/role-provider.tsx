@@ -9,7 +9,7 @@ export interface LastWatchedLesson {
   title: string;
 }
 
-export const DISCORD_INVITE_URL = "https://discord.gg/noxius-lm";
+export const DISCORD_INVITE_URL = "https://discord.gg/TYNQmp8fvk";
 
 interface RoleContextValue {
   role: AppRole;
@@ -103,8 +103,15 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         }
 
         const savedDiscord = localStorage.getItem(STORAGE_DISCORD_KEY);
-        if (savedDiscord && savedDiscord.trim()) {
+        if (
+          savedDiscord &&
+          savedDiscord.trim() &&
+          savedDiscord.trim() !== "https://discord.gg/noxius-lm"
+        ) {
           setDiscordUrlState(savedDiscord.trim());
+        } else {
+          setDiscordUrlState(DISCORD_INVITE_URL);
+          localStorage.setItem(STORAGE_DISCORD_KEY, DISCORD_INVITE_URL);
         }
       } catch {
         // Ignorar errores de almacenamiento en navegación privada
