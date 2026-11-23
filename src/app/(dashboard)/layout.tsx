@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
-import { DashboardDnaBackground } from "@/components/DashboardDnaBackground";
+import { DashboardNeuralBackground } from "@/components/DashboardNeuralBackground";
 
 export default function DashboardLayout({
   children,
@@ -14,8 +14,8 @@ export default function DashboardLayout({
 
   return (
     <div className="flex h-screen w-full bg-[#050811] relative overflow-hidden overflow-x-hidden">
-      {/* Fondo 3D Interactivo: Doble Hélice de Energía + Campo Estelar */}
-      <DashboardDnaBackground />
+      {/* Fondo 3D Interactivo: Esfera de Red Neuronal / Átomo + Campo Estelar */}
+      <DashboardNeuralBackground />
 
       {/* Sidebar responsivo (drawer en móvil, fijo en desktop) */}
       <Sidebar
