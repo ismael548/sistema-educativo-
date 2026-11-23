@@ -215,7 +215,7 @@ export default function DashboardPage() {
     return (
       <div className="relative z-10 space-y-6 max-w-7xl mx-auto bg-transparent">
         {/* Header Docente */}
-        <div className="rounded-2xl bg-[#0b1120]/60 backdrop-blur-md border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.4)] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="rounded-2xl bg-[#0a0f1d]/60 backdrop-blur-xl border border-indigo-400/20 shadow-[0_8px_32px_rgba(0,0,0,0.4)] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4 min-w-0">
             <img
               src={logoImg.src}
@@ -262,7 +262,7 @@ export default function DashboardPage() {
 
         {/* Métricas Reales */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-[#0b1120]/60 backdrop-blur-md border border-white/15 border-t-2 border-t-indigo-500/40 hover:border-white/25 transition rounded-xl p-5 flex items-center justify-between shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+          <div className="bg-[#0a0f1d]/60 backdrop-blur-xl border border-indigo-400/20 border-t-2 border-t-indigo-500/40 hover:border-white/25 transition rounded-xl p-5 flex items-center justify-between shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
             <div>
               <span className="text-xs text-gray-400 font-medium">Clases Publicadas</span>
               <p className="text-3xl font-bold tracking-tight text-white mt-1">{lessons.length}</p>
@@ -272,7 +272,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="bg-[#0b1120]/60 backdrop-blur-md border border-white/15 border-t-2 border-t-emerald-500/40 hover:border-white/25 transition rounded-xl p-5 flex items-center justify-between shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+          <div className="bg-[#0a0f1d]/60 backdrop-blur-xl border border-indigo-400/20 border-t-2 border-t-emerald-500/40 hover:border-white/25 transition rounded-xl p-5 flex items-center justify-between shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
             <div>
               <span className="text-xs text-gray-400 font-medium">Materiales en Drive/Colab</span>
               <p className="text-3xl font-bold tracking-tight text-white mt-1">{materialsCount}</p>
@@ -282,7 +282,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="bg-[#0b1120]/60 backdrop-blur-md border border-white/15 border-t-2 border-t-cyan-500/40 hover:border-white/25 transition rounded-xl p-5 flex items-center justify-between shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+          <div className="bg-[#0a0f1d]/60 backdrop-blur-xl border border-indigo-400/20 border-t-2 border-t-cyan-500/40 hover:border-white/25 transition rounded-xl p-5 flex items-center justify-between shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
             <div>
               <span className="text-xs text-gray-400 font-medium">Mensajes en Chat</span>
               <p className="text-3xl font-bold tracking-tight text-white mt-1">{messagesCount}</p>
@@ -296,7 +296,7 @@ export default function DashboardPage() {
         {/* Configuración rápida: Enlace de invitación a Discord */}
         <form
           onSubmit={handleSaveDiscordUrl}
-          className="bg-[#0b1120]/60 backdrop-blur-md border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+          className="bg-[#0a0f1d]/60 backdrop-blur-xl border border-indigo-400/20 shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
         >
           <div className="flex items-center gap-2.5 shrink-0">
             <div className="p-2 rounded-lg bg-[#5865F2]/20 border border-[#5865F2]/40 text-[#8ea1e1]">
@@ -335,7 +335,7 @@ export default function DashboardPage() {
         </form>
 
         {/* Lista de Clases Publicadas */}
-        <div className="bg-[#0b1120]/60 backdrop-blur-md border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-xl overflow-hidden">
+        <div className="bg-[#0a0f1d]/60 backdrop-blur-xl border border-indigo-400/20 shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-xl overflow-hidden">
           <div className="p-4 border-b border-white/10 flex items-center justify-between">
             <h2 className="text-xs font-bold text-gray-200 uppercase tracking-wider">
               Clases Publicadas en Supabase ({lessons.length})
@@ -410,7 +410,7 @@ export default function DashboardPage() {
   return (
     <div className="relative z-10 space-y-6 max-w-7xl mx-auto bg-transparent">
       {/* Welcome Banner */}
-      <div className="relative rounded-2xl bg-[#0b1120]/60 backdrop-blur-md border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.4)] p-6 overflow-hidden">
+      <div className="relative rounded-2xl bg-[#0a0f1d]/60 backdrop-blur-xl border border-indigo-400/20 shadow-[0_8px_32px_rgba(0,0,0,0.4)] p-6 overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4 min-w-0">
             <img
@@ -442,7 +442,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Banner Superior Compacto de Comunidad y Sala en Vivo */}
-      <div className="bg-[#0b1120]/60 border border-white/15 backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="bg-[#0a0f1d]/60 backdrop-blur-xl border border-indigo-400/20 shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
         {/* Lado izquierdo: Estado de Sala en Vivo de Noxius LM */}
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           {isLivePresenting ? (
@@ -491,7 +491,7 @@ export default function DashboardPage() {
 
       {/* Tarjetas superiores con datos reales desde Supabase */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-[#0b1120]/60 backdrop-blur-md border border-white/15 border-t-2 border-t-indigo-500/40 hover:border-white/25 transition rounded-xl p-4 flex flex-col justify-between shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+        <div className="bg-[#0a0f1d]/60 backdrop-blur-xl border border-indigo-400/20 border-t-2 border-t-indigo-500/40 hover:border-white/25 transition rounded-xl p-4 flex flex-col justify-between shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-400 font-medium">Clases Publicadas</span>
             <div className="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/25 text-indigo-400">
@@ -506,7 +506,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-[#0b1120]/60 backdrop-blur-md border border-white/15 border-t-2 border-t-emerald-500/40 hover:border-white/25 transition rounded-xl p-4 flex flex-col justify-between shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+        <div className="bg-[#0a0f1d]/60 backdrop-blur-xl border border-indigo-400/20 border-t-2 border-t-emerald-500/40 hover:border-white/25 transition rounded-xl p-4 flex flex-col justify-between shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-400 font-medium">Recursos Disponibles</span>
             <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-400">
@@ -521,7 +521,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-[#0b1120]/60 backdrop-blur-md border border-white/15 border-t-2 border-t-cyan-500/40 hover:border-white/25 transition rounded-xl p-4 flex flex-col justify-between shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+        <div className="bg-[#0a0f1d]/60 backdrop-blur-xl border border-indigo-400/20 border-t-2 border-t-cyan-500/40 hover:border-white/25 transition rounded-xl p-4 flex flex-col justify-between shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-400 font-medium">Última Clase Vista</span>
             <div className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/25 text-cyan-400">
@@ -544,7 +544,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Barra de Progreso Real */}
-      <div className="bg-[#0b1120]/60 backdrop-blur-md border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-xl p-4 space-y-2.5">
+      <div className="bg-[#0a0f1d]/60 backdrop-blur-xl border border-indigo-400/20 shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-xl p-4 space-y-2.5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
           <span className="font-medium text-gray-300">Progreso del Curso</span>
           <span className="font-mono text-indigo-300">
@@ -600,7 +600,7 @@ export default function DashboardPage() {
                   <Link
                     key={lesson.id}
                     href={`/courses/general/lessons/${lesson.id}`}
-                    className="bg-[#0b1120]/60 backdrop-blur-md border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-xl p-4 flex flex-col sm:flex-row gap-4 hover:border-white/25 transition-all group"
+                    className="bg-[#0a0f1d]/60 backdrop-blur-xl border border-indigo-400/20 shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-xl p-4 flex flex-col sm:flex-row gap-4 hover:border-white/25 transition-all group"
                   >
                     {/* Miniatura automática de YouTube o fallback limpio */}
                     <div className="w-full sm:w-44 h-28 rounded-lg overflow-hidden bg-[#1a1f26] border border-[#232a35] shrink-0 relative flex items-center justify-center">
@@ -665,7 +665,7 @@ export default function DashboardPage() {
 
         {/* Columna Lateral: Aula Virtual en Vivo + Accesos */}
         <div className="space-y-6">
-          <div className="bg-[#0b1120]/60 backdrop-blur-md border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:border-white/25 transition rounded-xl p-5 space-y-4">
+          <div className="bg-[#0a0f1d]/60 backdrop-blur-xl border border-indigo-400/20 shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:border-white/25 transition rounded-xl p-5 space-y-4">
             {/* Indicador claro de estado de sala arriba del bloque en vivo */}
             <div className="flex items-center justify-between gap-2 pb-3 border-b border-white/10">
               {isLivePresenting ? (
@@ -702,7 +702,7 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          <div className="bg-[#0b1120]/60 backdrop-blur-md border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-xl p-5 space-y-3">
+          <div className="bg-[#0a0f1d]/60 backdrop-blur-xl border border-indigo-400/20 shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-xl p-5 space-y-3">
             <h3 className="text-xs font-semibold text-gray-300 uppercase tracking-wider font-mono">
               Accesos Rápidos
             </h3>

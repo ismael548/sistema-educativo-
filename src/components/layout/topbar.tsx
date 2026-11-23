@@ -30,7 +30,7 @@ export function Topbar({
   const { discordUrl } = useUserRole();
 
   return (
-    <header className="h-16 bg-[#070b14]/80 backdrop-blur-xl border-b border-white/10 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20 shrink-0">
+    <header className="h-16 bg-[#060913]/80 backdrop-blur-xl border-b border-indigo-400/15 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20 shrink-0">
       <div className="flex items-center gap-3 min-w-0">
         {onMenuClick && (
           <button

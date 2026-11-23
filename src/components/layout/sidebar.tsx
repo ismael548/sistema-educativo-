@@ -97,7 +97,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 md:w-64 bg-[#070b14]/80 backdrop-blur-xl border-r border-white/10 flex flex-col h-screen select-none shrink-0 transform transition-transform duration-200 ease-out md:relative md:z-10 md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-72 md:w-64 bg-[#060913]/80 backdrop-blur-xl border-r border-indigo-400/15 flex flex-col h-screen select-none shrink-0 transform transition-transform duration-200 ease-out md:relative md:z-10 md:translate-x-0 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >

@@ -2,86 +2,80 @@
 
 import React, { useEffect, useRef } from "react";
 
-interface SphereNode {
-  x: number;
-  y: number;
-  z: number;
+interface PanoramicNode {
+  // Normalized 3D coordinates spanning full viewport (-1.15..1.15)
+  nx: number;
+  ny: number;
+  nz: number;
+  vx: number;
+  vy: number;
+  vz: number;
   color: string;
+  haloColor: string;
   baseRadius: number;
+  hasHalo: boolean;
   pulsePhase: number;
   pulseSpeed: number;
 }
 
-interface SynapticEdge {
-  a: number;
-  b: number;
-  pulseOffset: number;
-  color: string;
-}
-
-interface OrbitalParticle {
-  ringIndex: number;
-  angle: number;
+interface GalacticParticle {
+  // Diagonal galactic stream across full viewport
+  streamPos: number; // -1.3 .. 1.3 along diagonal
+  spread: number; // perpendicular offset
+  depth: number; // -1 .. 1
   speed: number;
-  radiusScale: number;
   size: number;
   color: string;
   alpha: number;
-}
-
-interface RingConfig {
-  tiltX: number;
-  tiltY: number;
-  tiltZ: number;
-  rxScale: number;
-  ryScale: number;
-}
-
-interface Star {
-  x: number;
-  y: number;
-  radius: number;
-  alpha: number;
-  twinkleSpeed: number;
+  hasHalo: boolean;
   twinklePhase: number;
-  vx: number;
-  vy: number;
-  color: string;
+  twinkleSpeed: number;
 }
 
-const NODE_COUNT = 420;
-const STAR_COUNT = 150;
-const ORBITAL_PARTICLES_PER_RING = 90;
+interface EdgePulse {
+  t: number;
+  speed: number;
+}
 
-const PALETTE = ["#22d3ee", "#3b82f6", "#818cf8", "#ffffff"];
+const NODE_COUNT = 220;
+const GALAXY_PARTICLE_COUNT = 500;
 
-function rotate3D(
+const COSMIC_PALETTE = [
+  "#38bdf8", // cian eléctrico
+  "#22d3ee", // cian brillante
+  "#6366f1", // índigo profundo
+  "#a855f7", // violeta luminoso
+  "#d946ef", // destello magenta
+  "#f0f9ff", // núcleo blanco-azulado
+];
+
+const HALO_MAP: Record<string, string> = {
+  "#38bdf8": "rgba(56, 189, 248, 0.35)",
+  "#22d3ee": "rgba(34, 211, 238, 0.35)",
+  "#6366f1": "rgba(99, 102, 241, 0.35)",
+  "#a855f7": "rgba(168, 85, 247, 0.35)",
+  "#d946ef": "rgba(217, 70, 239, 0.32)",
+  "#f0f9ff": "rgba(240, 249, 255, 0.4)",
+};
+
+function rotatePerspective(
   x: number,
   y: number,
   z: number,
   rx: number,
-  ry: number,
-  rz: number
+  ry: number
 ): { x: number; y: number; z: number } {
-  // Rotate around X
   const cosX = Math.cos(rx);
   const sinX = Math.sin(rx);
   const y1 = y * cosX - z * sinX;
   const z1 = y * sinX + z * cosX;
 
-  // Rotate around Y
   const cosY = Math.cos(ry);
   const sinY = Math.sin(ry);
   const x2 = x * cosY + z1 * sinY;
   const z2 = -x * sinY + z1 * cosY;
 
-  // Rotate around Z
-  const cosZ = Math.cos(rz);
-  const sinZ = Math.sin(rz);
-  const x3 = x2 * cosZ - y1 * sinZ;
-  const y3 = x2 * sinZ + y1 * cosZ;
-
-  return { x: x3, y: y3, z: z2 };
+  return { x: x2, y: y1, z: z2 };
 }
 
 export function DashboardNeuralBackground() {
@@ -114,108 +108,83 @@ export function DashboardNeuralBackground() {
 
     resizeCanvas();
 
-    // 1. Fibonacci Sphere Nodes (~420)
-    const nodes: SphereNode[] = [];
-    const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-    for (let i = 0; i < NODE_COUNT; i++) {
-      const y = 1 - (i / (NODE_COUNT - 1)) * 2;
-      const radiusAtY = Math.sqrt(1 - y * y);
-      const theta = goldenAngle * i;
-      const x = Math.cos(theta) * radiusAtY;
-      const z = Math.sin(theta) * radiusAtY;
-
+    // 1. Constelación Neuronal Panorámica en 3D (~220 nodos distribuidos por toda la pantalla)
+    const nodes: PanoramicNode[] = Array.from({ length: NODE_COUNT }, (_, i) => {
       const colorRoll = Math.random();
       const color =
-        colorRoll < 0.42
-          ? "#22d3ee"
-          : colorRoll < 0.72
-            ? "#3b82f6"
-            : colorRoll < 0.94
-              ? "#818cf8"
-              : "#ffffff";
+        colorRoll < 0.26
+          ? "#38bdf8"
+          : colorRoll < 0.48
+            ? "#22d3ee"
+            : colorRoll < 0.68
+              ? "#6366f1"
+              : colorRoll < 0.85
+                ? "#a855f7"
+                : colorRoll < 0.94
+                  ? "#d946ef"
+                  : "#f0f9ff";
 
-      nodes.push({
-        x,
-        y,
-        z,
+      return {
+        nx: (Math.random() - 0.5) * 2.24,
+        ny: (Math.random() - 0.5) * 2.24,
+        nz: (Math.random() - 0.5) * 1.4,
+        vx: (Math.random() - 0.5) * 0.00055,
+        vy: (Math.random() - 0.5) * 0.00055,
+        vz: (Math.random() - 0.5) * 0.00045,
         color,
-        baseRadius: 1.1 + Math.random() * 1.4,
+        haloColor: HALO_MAP[color],
+        baseRadius: i % 6 === 0 ? 2.1 + Math.random() * 1.4 : 1.0 + Math.random() * 1.3,
+        hasHalo: i % 5 === 0,
         pulsePhase: Math.random() * Math.PI * 2,
-        pulseSpeed: 1.2 + Math.random() * 1.8,
-      });
-    }
+        pulseSpeed: 1.4 + Math.random() * 2.0,
+      };
+    });
 
-    // 2. Precompute nearby synaptic edges on unit sphere
-    const edges: SynapticEdge[] = [];
-    const maxDistSq = 0.24 * 0.24;
-    for (let i = 0; i < NODE_COUNT; i++) {
-      let connections = 0;
-      for (let j = i + 1; j < NODE_COUNT; j++) {
-        const dx = nodes[i].x - nodes[j].x;
-        const dy = nodes[i].y - nodes[j].y;
-        const dz = nodes[i].z - nodes[j].z;
-        const dSq = dx * dx + dy * dy + dz * dz;
-        if (dSq < maxDistSq) {
-          edges.push({
-            a: i,
-            b: j,
-            pulseOffset: Math.random() * Math.PI * 2,
-            color: (i + j) % 2 === 0 ? "#22d3ee" : "#818cf8",
-          });
-          connections++;
-          if (connections >= 4) break;
-        }
+    // Pulsos de luz que recorren las conexiones cercanas
+    const edgePulses = new Map<string, EdgePulse>();
+
+    // 2. Corriente Galáctica / Nebulosa de Partículas (~500 partículas cruzando en diagonal)
+    const galaxyParticles: GalacticParticle[] = Array.from(
+      { length: GALAXY_PARTICLE_COUNT },
+      (_, i) => {
+        const color = COSMIC_PALETTE[i % COSMIC_PALETTE.length];
+        // Distribución concentrada a lo largo de la banda diagonal + dispersión periférica
+        const inBand = Math.random() < 0.72;
+        const spread = inBand
+          ? (Math.random() - 0.5) * 0.58 + (Math.random() - 0.5) * 0.25
+          : (Math.random() - 0.5) * 2.1;
+
+        return {
+          streamPos: (Math.random() - 0.5) * 2.6,
+          spread,
+          depth: (Math.random() - 0.5) * 1.8,
+          speed: 0.022 + Math.random() * 0.045,
+          size: i % 12 === 0 ? 1.8 + Math.random() * 1.4 : 0.65 + Math.random() * 1.35,
+          color,
+          alpha: 0.35 + Math.random() * 0.65,
+          hasHalo: i % 14 === 0,
+          twinklePhase: Math.random() * Math.PI * 2,
+          twinkleSpeed: 1.2 + Math.random() * 2.2,
+        };
       }
-    }
+    );
 
-    // 3. Three tilted 3D orbital rings (Atom / Energy)
-    const ringConfigs: RingConfig[] = [
-      { tiltX: 0.95, tiltY: 0.35, tiltZ: 0.25, rxScale: 1.45, ryScale: 1.45 },
-      { tiltX: -0.75, tiltY: 0.85, tiltZ: -0.4, rxScale: 1.6, ryScale: 1.6 },
-      { tiltX: 0.3, tiltY: -1.05, tiltZ: 0.7, rxScale: 1.72, ryScale: 1.72 },
-    ];
-
-    const orbitalParticles: OrbitalParticle[] = [];
-    for (let r = 0; r < ringConfigs.length; r++) {
-      for (let p = 0; p < ORBITAL_PARTICLES_PER_RING; p++) {
-        const isHead = p % 15 === 0;
-        orbitalParticles.push({
-          ringIndex: r,
-          angle: (p / ORBITAL_PARTICLES_PER_RING) * Math.PI * 2,
-          speed: (r === 1 ? -1 : 1) * (0.28 + r * 0.06),
-          radiusScale: 0.98 + (Math.random() - 0.5) * 0.04,
-          size: isHead ? 2.2 : 0.9 + Math.random() * 0.9,
-          color: isHead
-            ? "#ffffff"
-            : r === 0
-              ? "#22d3ee"
-              : r === 1
-                ? "#818cf8"
-                : "#3b82f6",
-          alpha: isHead ? 0.9 : 0.3 + Math.random() * 0.45,
-        });
-      }
-    }
-
-    // 4. Peripheral starfield (~150 stars)
-    const stars: Star[] = Array.from({ length: STAR_COUNT }, () => ({
-      x: Math.random(),
-      y: Math.random(),
-      radius: 0.5 + Math.random() * 1.4,
-      alpha: 0.25 + Math.random() * 0.55,
-      twinkleSpeed: 0.8 + Math.random() * 2.0,
-      twinklePhase: Math.random() * Math.PI * 2,
-      vx: (Math.random() - 0.5) * 0.00004,
-      vy: (Math.random() - 0.5) * 0.00004,
-      color: PALETTE[Math.floor(Math.random() * PALETTE.length)],
-    }));
-
-    // Pointer interactivity with smooth lerp
-    const pointer = { x: 0, y: 0, targetX: 0, targetY: 0 };
+    const pointer = {
+      x: -9999,
+      y: -9999,
+      normX: 0,
+      normY: 0,
+      tiltX: 0,
+      tiltY: 0,
+      active: false,
+    };
 
     const handlePointerMove = (clientX: number, clientY: number) => {
-      pointer.targetX = (clientX / Math.max(width, 1) - 0.5) * 2;
-      pointer.targetY = (clientY / Math.max(height, 1) - 0.5) * 2;
+      pointer.x = clientX;
+      pointer.y = clientY;
+      pointer.normX = (clientX / Math.max(width, 1) - 0.5) * 2;
+      pointer.normY = (clientY / Math.max(height, 1) - 0.5) * 2;
+      pointer.active = true;
     };
 
     const onMouseMove = (e: MouseEvent) => handlePointerMove(e.clientX, e.clientY);
@@ -224,171 +193,316 @@ export function DashboardNeuralBackground() {
         handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
       }
     };
+    const onMouseLeave = () => {
+      pointer.active = false;
+      pointer.normX = 0;
+      pointer.normY = 0;
+    };
 
     window.addEventListener("resize", resizeCanvas);
     window.addEventListener("mousemove", onMouseMove, { passive: true });
     window.addEventListener("touchmove", onTouchMove, { passive: true });
+    window.addEventListener("mouseleave", onMouseLeave);
 
     let animationFrameId = 0;
-    const startTime = performance.now();
+    let lastTime = performance.now();
+    const startTime = lastTime;
 
-    const projectedX = new Float32Array(NODE_COUNT);
-    const projectedY = new Float32Array(NODE_COUNT);
-    const projectedZ = new Float32Array(NODE_COUNT);
-    const projectedScale = new Float32Array(NODE_COUNT);
+    const projX = new Float32Array(NODE_COUNT);
+    const projY = new Float32Array(NODE_COUNT);
+    const projZ = new Float32Array(NODE_COUNT);
+    const projScale = new Float32Array(NODE_COUNT);
+    const pointerBoost = new Float32Array(NODE_COUNT);
 
     const renderFrame = (now: number) => {
+      const dt = Math.min((now - lastTime) * 0.001, 0.05);
+      lastTime = now;
       const elapsed = prefersReducedMotion ? 0 : (now - startTime) * 0.001;
 
-      pointer.x += (pointer.targetX - pointer.x) * 0.05;
-      pointer.y += (pointer.targetY - pointer.y) * 0.05;
+      // Suave inclinación 3D hacia el puntero
+      pointer.tiltX += (pointer.normY * 0.18 - pointer.tiltX) * 0.05;
+      pointer.tiltY += (pointer.normX * 0.24 - pointer.tiltY) * 0.05;
 
-      // Deep-space base fill
+      // 1. Fondo espacial profundo idéntico a la portada (#05070d)
       ctx.globalCompositeOperation = "source-over";
       ctx.globalAlpha = 1;
-      ctx.fillStyle = "#050811";
+      ctx.fillStyle = "#05070d";
       ctx.fillRect(0, 0, width, height);
 
+      // Brillo aditivo idéntico a la galaxia de inicio
       ctx.globalCompositeOperation = "lighter";
 
-      const centerX = width * 0.5 - pointer.x * 26;
-      const centerY = height * 0.5 - pointer.y * 18;
-      const sphereRadius = Math.min(width, height) * 0.25;
-      const fov = Math.max(width, height) * 0.95;
+      const halfW = width * 0.5;
+      const halfH = height * 0.5;
+      const fov = Math.max(width, height) * 1.15;
 
-      // Ambient core glow
-      const coreGlow = ctx.createRadialGradient(
-        centerX,
-        centerY,
+      // Resplandores nebulosos ambientales en diagonal (cian eléctrico + índigo/violeta)
+      const neb1 = ctx.createRadialGradient(
+        width * 0.22 - pointer.tiltY * 80,
+        height * 0.24 - pointer.tiltX * 80,
         0,
-        centerX,
-        centerY,
-        sphereRadius * 1.9
+        width * 0.22 - pointer.tiltY * 80,
+        height * 0.24 - pointer.tiltX * 80,
+        Math.max(width, height) * 0.52
       );
-      coreGlow.addColorStop(0, "rgba(34, 211, 238, 0.14)");
-      coreGlow.addColorStop(0.35, "rgba(59, 130, 246, 0.08)");
-      coreGlow.addColorStop(0.7, "rgba(129, 140, 248, 0.03)");
-      coreGlow.addColorStop(1, "rgba(5, 8, 17, 0)");
-      ctx.fillStyle = coreGlow;
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, sphereRadius * 1.9, 0, Math.PI * 2);
-      ctx.fill();
+      neb1.addColorStop(0, "rgba(56, 189, 248, 0.11)");
+      neb1.addColorStop(0.45, "rgba(99, 102, 241, 0.05)");
+      neb1.addColorStop(1, "rgba(5, 7, 13, 0)");
+      ctx.fillStyle = neb1;
+      ctx.fillRect(0, 0, width, height);
 
-      // 1. Render peripheral starfield
-      for (let i = 0; i < stars.length; i++) {
-        const s = stars[i];
+      const neb2 = ctx.createRadialGradient(
+        width * 0.78 + pointer.tiltY * 80,
+        height * 0.76 + pointer.tiltX * 80,
+        0,
+        width * 0.78 + pointer.tiltY * 80,
+        height * 0.76 + pointer.tiltX * 80,
+        Math.max(width, height) * 0.55
+      );
+      neb2.addColorStop(0, "rgba(168, 85, 247, 0.12)");
+      neb2.addColorStop(0.42, "rgba(217, 70, 239, 0.05)");
+      neb2.addColorStop(1, "rgba(5, 7, 13, 0)");
+      ctx.fillStyle = neb2;
+      ctx.fillRect(0, 0, width, height);
+
+      // 2. Corriente Galáctica / Nebulosa de Partículas (~500 partículas diagonales de extremo a extremo)
+      const diagAngle = -0.52 + Math.sin(elapsed * 0.08) * 0.04;
+      const cosD = Math.cos(diagAngle);
+      const sinD = Math.sin(diagAngle);
+
+      for (let i = 0; i < GALAXY_PARTICLE_COUNT; i++) {
+        const p = galaxyParticles[i];
         if (!prefersReducedMotion) {
-          s.x = (s.x + s.vx + 1) % 1;
-          s.y = (s.y + s.vy + 1) % 1;
+          p.streamPos += p.speed * dt;
+          if (p.streamPos > 1.35) {
+            p.streamPos = -1.35;
+          }
         }
+
+        // Rotación sutil de la corriente alrededor del eje diagonal
+        const swirl = elapsed * 0.14 + p.streamPos * 1.6;
+        const localX = p.streamPos;
+        const localY = p.spread + Math.sin(swirl) * 0.04;
+        const localZ = p.depth + Math.cos(swirl) * 0.18;
+
+        // Rotación diagonal panorámica
+        const rx = localX * cosD - localY * sinD;
+        const ry = localX * sinD + localY * cosD;
+
+        // Perspectiva 3D con inclinación del cursor
+        const tilted = rotatePerspective(
+          rx * halfW,
+          ry * halfH,
+          localZ * 260,
+          pointer.tiltX,
+          pointer.tiltY
+        );
+        const scale = fov / (fov + tilted.z + 320);
+        const sx = halfW + tilted.x * scale;
+        const sy = halfH + tilted.y * scale;
+
+        if (sx < -40 || sx > width + 40 || sy < -40 || sy > height + 40) continue;
+
         const twinkle =
-          0.55 + 0.45 * Math.sin(elapsed * s.twinkleSpeed + s.twinklePhase);
-        const sx = s.x * width - pointer.x * 8 * s.radius;
-        const sy = s.y * height - pointer.y * 8 * s.radius;
+          0.62 + 0.38 * Math.sin(elapsed * p.twinkleSpeed + p.twinklePhase);
+        const depthAlpha = Math.max(0.18, Math.min(1, scale * 0.85));
 
-        ctx.globalAlpha = s.alpha * twinkle;
-        ctx.fillStyle = s.color;
-        ctx.beginPath();
-        ctx.arc(sx, sy, s.radius, 0, Math.PI * 2);
-        ctx.fill();
-      }
+        if (p.hasHalo) {
+          const haloR = p.size * scale * 4.5;
+          const haloGrad = ctx.createRadialGradient(sx, sy, 0, sx, sy, haloR);
+          haloGrad.addColorStop(0, HALO_MAP[p.color]);
+          haloGrad.addColorStop(1, "rgba(5, 7, 13, 0)");
+          ctx.globalAlpha = p.alpha * twinkle * depthAlpha * 0.75;
+          ctx.fillStyle = haloGrad;
+          ctx.beginPath();
+          ctx.arc(sx, sy, haloR, 0, Math.PI * 2);
+          ctx.fill();
+        }
 
-      // Global rotation angles (continuous + pointer tilt)
-      const rotX = elapsed * 0.14 + pointer.y * 0.35;
-      const rotY = elapsed * 0.22 + pointer.x * 0.45;
-      const rotZ = elapsed * 0.05;
-
-      // 2. Project Neural Sphere Nodes
-      for (let i = 0; i < NODE_COUNT; i++) {
-        const n = nodes[i];
-        const r = rotate3D(n.x, n.y, n.z, rotX, rotY, rotZ);
-        const worldZ = r.z * sphereRadius;
-        const scale = fov / (fov + worldZ + sphereRadius * 0.8);
-        projectedX[i] = centerX + r.x * sphereRadius * scale;
-        projectedY[i] = centerY + r.y * sphereRadius * scale;
-        projectedZ[i] = r.z;
-        projectedScale[i] = scale;
-      }
-
-      // 3. Draw Synaptic Edges with traveling energy pulses
-      ctx.lineWidth = 0.85;
-      for (let i = 0; i < edges.length; i++) {
-        const e = edges[i];
-        const avgZ = (projectedZ[e.a] + projectedZ[e.b]) * 0.5;
-        const depthAlpha = Math.max(0.05, Math.min(0.42, (1 - avgZ) * 0.22));
-        const pulse =
-          0.55 + 0.45 * Math.sin(elapsed * 2.2 + e.pulseOffset + avgZ * 2.0);
-
-        ctx.globalAlpha = depthAlpha * pulse;
-        ctx.strokeStyle = e.color;
-        ctx.beginPath();
-        ctx.moveTo(projectedX[e.a], projectedY[e.a]);
-        ctx.lineTo(projectedX[e.b], projectedY[e.b]);
-        ctx.stroke();
-      }
-
-      // 4. Draw Neural Sphere Nodes
-      for (let i = 0; i < NODE_COUNT; i++) {
-        const n = nodes[i];
-        const depthAlpha = Math.max(
-          0.14,
-          Math.min(0.95, (1 - projectedZ[i]) * 0.48)
-        );
-        const pulse =
-          0.7 + 0.3 * Math.sin(elapsed * n.pulseSpeed + n.pulsePhase);
-
-        ctx.globalAlpha = depthAlpha * pulse;
-        ctx.fillStyle = n.color;
-        ctx.beginPath();
-        ctx.arc(
-          projectedX[i],
-          projectedY[i],
-          n.baseRadius * projectedScale[i],
-          0,
-          Math.PI * 2
-        );
-        ctx.fill();
-      }
-
-      // 5. Draw 3D Orbital Atom Rings
-      for (let i = 0; i < orbitalParticles.length; i++) {
-        const p = orbitalParticles[i];
-        const cfg = ringConfigs[p.ringIndex];
-        const a = p.angle + elapsed * p.speed;
-
-        const localX = Math.cos(a) * cfg.rxScale * p.radiusScale;
-        const localY = Math.sin(a) * cfg.ryScale * p.radiusScale;
-        const localZ = 0;
-
-        // First apply the ring's own 3D inclination
-        const tilted = rotate3D(
-          localX,
-          localY,
-          localZ,
-          cfg.tiltX,
-          cfg.tiltY,
-          cfg.tiltZ
-        );
-        // Then apply subtle global pointer/scene rotation
-        const world = rotate3D(
-          tilted.x,
-          tilted.y,
-          tilted.z,
-          pointer.y * 0.28 + elapsed * 0.04,
-          pointer.x * 0.38 + elapsed * 0.06,
-          0
-        );
-
-        const worldZ = world.z * sphereRadius;
-        const scale = fov / (fov + worldZ + sphereRadius * 0.8);
-        const sx = centerX + world.x * sphereRadius * scale;
-        const sy = centerY + world.y * sphereRadius * scale;
-        const depthAlpha = Math.max(0.12, Math.min(1, (1 - world.z * 0.5) * 0.65));
-
-        ctx.globalAlpha = p.alpha * depthAlpha;
+        ctx.globalAlpha = p.alpha * twinkle * depthAlpha;
         ctx.fillStyle = p.color;
         ctx.beginPath();
-        ctx.arc(sx, sy, p.size * scale, 0, Math.PI * 2);
+        ctx.arc(sx, sy, Math.max(0.5, p.size * scale), 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 3. Actualizar y proyectar Constelación Neuronal Panorámica (~220 nodos en todo el viewport)
+      const rotX = pointer.tiltX + Math.sin(elapsed * 0.12) * 0.06;
+      const rotY = pointer.tiltY + Math.cos(elapsed * 0.1) * 0.08;
+      const pointerRadius = Math.min(width, height) * 0.24;
+
+      for (let i = 0; i < NODE_COUNT; i++) {
+        const n = nodes[i];
+        if (!prefersReducedMotion) {
+          n.nx += n.vx;
+          n.ny += n.vy;
+          n.nz += n.vz;
+
+          if (n.nx > 1.15 || n.nx < -1.15) n.vx *= -1;
+          if (n.ny > 1.15 || n.ny < -1.15) n.vy *= -1;
+          if (n.nz > 0.75 || n.nz < -0.75) n.vz *= -1;
+        }
+
+        const world = rotatePerspective(
+          n.nx * halfW * 1.05,
+          n.ny * halfH * 1.05,
+          n.nz * 260,
+          rotX,
+          rotY
+        );
+        const scale = fov / (fov + world.z + 280);
+        const sx = halfW + world.x * scale;
+        const sy = halfH + world.y * scale;
+
+        projX[i] = sx;
+        projY[i] = sy;
+        projZ[i] = world.z;
+        projScale[i] = scale;
+
+        if (pointer.active) {
+          const dist = Math.hypot(sx - pointer.x, sy - pointer.y);
+          pointerBoost[i] = dist < pointerRadius ? 1 - dist / pointerRadius : 0;
+        } else {
+          pointerBoost[i] = 0;
+        }
+      }
+
+      // 4. Líneas sinápticas finas en degradado cian-violeta + pulsos de luz viajeros
+      const maxConnectDist = Math.max(135, Math.min(width, height) * 0.17);
+      const maxConnectDistSq = maxConnectDist * maxConnectDist;
+
+      for (let i = 0; i < NODE_COUNT; i++) {
+        const ax = projX[i];
+        const ay = projY[i];
+        if (ax < -80 || ax > width + 80 || ay < -80 || ay > height + 80) continue;
+
+        let linkCount = 0;
+        for (let j = i + 1; j < NODE_COUNT; j++) {
+          const bx = projX[j];
+          const by = projY[j];
+          const dx = bx - ax;
+          const dy = by - ay;
+          const dSq = dx * dx + dy * dy;
+
+          if (dSq < maxConnectDistSq) {
+            const dist = Math.sqrt(dSq);
+            const proximity = 1 - dist / maxConnectDist;
+            const boost = Math.max(pointerBoost[i], pointerBoost[j]);
+            const alpha = proximity * (0.24 + boost * 0.42);
+
+            const lineGrad = ctx.createLinearGradient(ax, ay, bx, by);
+            lineGrad.addColorStop(0, `rgba(56, 189, 248, ${alpha})`);
+            lineGrad.addColorStop(0.5, `rgba(99, 102, 241, ${alpha * 0.95})`);
+            lineGrad.addColorStop(1, `rgba(168, 85, 247, ${alpha})`);
+
+            ctx.globalAlpha = 1;
+            ctx.lineWidth = 0.75 + boost * 0.75;
+            ctx.strokeStyle = lineGrad;
+            ctx.beginPath();
+            ctx.moveTo(ax, ay);
+            ctx.lineTo(bx, by);
+            ctx.stroke();
+
+            // Pulso luminoso viajando por algunas conexiones
+            if ((i + j) % 5 === 0 || boost > 0.25) {
+              const key = `${i}-${j}`;
+              let pulse = edgePulses.get(key);
+              if (!pulse) {
+                pulse = {
+                  t: ((i * 17 + j * 31) % 100) / 100,
+                  speed: 0.35 + ((i + j) % 4) * 0.12,
+                };
+                edgePulses.set(key, pulse);
+              }
+              if (!prefersReducedMotion) {
+                pulse.t = (pulse.t + pulse.speed * dt) % 1;
+              }
+              const px = ax + dx * pulse.t;
+              const py = ay + dy * pulse.t;
+
+              ctx.globalAlpha = proximity * (0.65 + boost * 0.35);
+              ctx.fillStyle = "#f0f9ff";
+              ctx.beginPath();
+              ctx.arc(px, py, 1.35 + boost * 0.9, 0, Math.PI * 2);
+              ctx.fill();
+            }
+
+            linkCount++;
+            if (linkCount >= 4) break;
+          }
+        }
+      }
+
+      // 5. Filamentos luminosos hacia el cursor desde los nodos cercanos
+      if (pointer.active) {
+        for (let i = 0; i < NODE_COUNT; i++) {
+          const boost = pointerBoost[i];
+          if (boost <= 0.05) continue;
+
+          const nx = projX[i];
+          const ny = projY[i];
+          const pGrad = ctx.createLinearGradient(nx, ny, pointer.x, pointer.y);
+          pGrad.addColorStop(0, `rgba(34, 211, 238, ${boost * 0.58})`);
+          pGrad.addColorStop(0.55, `rgba(168, 85, 247, ${boost * 0.45})`);
+          pGrad.addColorStop(1, `rgba(217, 70, 239, ${boost * 0.65})`);
+
+          ctx.globalAlpha = 1;
+          ctx.lineWidth = 0.85 + boost * 0.8;
+          ctx.strokeStyle = pGrad;
+          ctx.beginPath();
+          ctx.moveTo(nx, ny);
+          ctx.lineTo(pointer.x, pointer.y);
+          ctx.stroke();
+        }
+
+        // Halo sutil en la posición del cursor
+        const cursorHalo = ctx.createRadialGradient(
+          pointer.x,
+          pointer.y,
+          0,
+          pointer.x,
+          pointer.y,
+          95
+        );
+        cursorHalo.addColorStop(0, "rgba(56, 189, 248, 0.16)");
+        cursorHalo.addColorStop(0.45, "rgba(168, 85, 247, 0.08)");
+        cursorHalo.addColorStop(1, "rgba(5, 7, 13, 0)");
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = cursorHalo;
+        ctx.beginPath();
+        ctx.arc(pointer.x, pointer.y, 95, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 6. Dibujar los ~220 nodos luminosos con halo suave
+      for (let i = 0; i < NODE_COUNT; i++) {
+        const n = nodes[i];
+        const sx = projX[i];
+        const sy = projY[i];
+        if (sx < -40 || sx > width + 40 || sy < -40 || sy > height + 40) continue;
+
+        const scale = projScale[i];
+        const boost = pointerBoost[i];
+        const pulse =
+          0.72 + 0.28 * Math.sin(elapsed * n.pulseSpeed + n.pulsePhase);
+        const radius = n.baseRadius * scale * (1 + boost * 0.75);
+
+        if (n.hasHalo || boost > 0.2) {
+          const haloRadius = radius * (4.4 + boost * 2.5);
+          const halo = ctx.createRadialGradient(sx, sy, 0, sx, sy, haloRadius);
+          halo.addColorStop(0, n.haloColor);
+          halo.addColorStop(1, "rgba(5, 7, 13, 0)");
+          ctx.globalAlpha = Math.min(1, (0.55 + boost * 0.45) * pulse);
+          ctx.fillStyle = halo;
+          ctx.beginPath();
+          ctx.arc(sx, sy, haloRadius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.globalAlpha = Math.min(1, (0.65 + boost * 0.35) * pulse);
+        ctx.fillStyle = boost > 0.45 ? "#f0f9ff" : n.color;
+        ctx.beginPath();
+        ctx.arc(sx, sy, radius, 0, Math.PI * 2);
         ctx.fill();
       }
 
@@ -407,6 +521,7 @@ export function DashboardNeuralBackground() {
       window.removeEventListener("resize", resizeCanvas);
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("mouseleave", onMouseLeave);
     };
   }, []);
 
