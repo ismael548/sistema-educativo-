@@ -20,7 +20,10 @@ import type { LessonItem, MaterialItem } from "@/lib/supabase/types";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { LessonChat } from "@/components/chat/lesson-chat";
 import { getDriveLinks } from "@/utils/driveHelpers";
-import { parseMaterialFileType } from "@/utils/materialCategory";
+import {
+  MaterialCategory,
+  parseMaterialFileType,
+} from "@/utils/materialCategory";
 import { useUserRole } from "@/components/providers/role-provider";
 
 interface LessonPageProps {
@@ -37,6 +40,8 @@ export default function LessonViewPage({ params }: LessonPageProps) {
   const [materials, setMaterials] = useState<MaterialItem[]>([]);
   const [isLoadingLessons, setIsLoadingLessons] = useState(true);
   const [isLoadingMaterials, setIsLoadingMaterials] = useState(false);
+  const [resourceTab, setResourceTab] = useState<MaterialCategory>("Teoría");
+  const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
 
   // Cargar lista de lecciones desde Supabase
   useEffect(() => {
@@ -310,93 +315,205 @@ export default function LessonViewPage({ params }: LessonPageProps) {
                 )}
               </div>
 
-              {/* Materiales asociados desde Google Drive */}
-              <div className="p-5 rounded-xl bg-[#13161c] border border-[#232a35] space-y-3">
-                <div className="flex items-center justify-between border-b border-[#232a35] pb-2.5">
-                  <div className="flex items-center gap-2">
-                    <FolderOpen className="w-4 h-4 text-indigo-400" />
-                    <h2 className="text-sm font-semibold text-white">
-                      Materiales Descargables
-                    </h2>
-                  </div>
-                  <span className="text-[11px] font-mono text-gray-500">
-                    {materials.length} archivo{materials.length === 1 ? "" : "s"}
-                  </span>
-                </div>
+              {/* Materiales y Recursos de la Clase (Solo lectura para el estudiante) */}
+              {(() => {
+                const theoryMats = materials.filter(
+                  (m) => parseMaterialFileType(m.file_type).category === "Teoría"
+                );
+                const practiceMats = materials.filter(
+                  (m) => parseMaterialFileType(m.file_type).category === "Práctica"
+                );
+                const videoMats = materials.filter(
+                  (m) =>
+                    parseMaterialFileType(m.file_type).category ===
+                    "Videos de Complemento"
+                );
+                const visibleMats =
+                  resourceTab === "Teoría"
+                    ? theoryMats
+                    : resourceTab === "Práctica"
+                      ? practiceMats
+                      : videoMats;
 
-                {isLoadingMaterials ? (
-                  <div className="py-4 flex items-center gap-2 text-xs text-gray-400">
-                    <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
-                    <span>Cargando materiales...</span>
-                  </div>
-                ) : materials.length === 0 ? (
-                  <p className="text-xs text-gray-500 py-2">
-                    No hay documentos adjuntos para esta clase.
-                  </p>
-                ) : (
-                  <div className="space-y-2.5">
-                    {materials.map((mat) => {
-                      const { previewUrl, downloadUrl } = getDriveLinks(mat.drive_url);
+                return (
+                  <div className="p-5 rounded-xl bg-[#13161c] border border-[#232a35] space-y-4">
+                    <div className="flex items-center justify-between border-b border-[#232a35] pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <FolderOpen className="w-4 h-4 text-indigo-400" />
+                        <h2 className="text-sm font-semibold text-white">
+                          Materiales y Recursos de la Clase
+                        </h2>
+                      </div>
+                      <span className="text-[11px] font-mono text-gray-400">
+                        {materials.length} recurso{materials.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
 
-                      return (
-                        <div
-                          key={mat.id}
-                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg bg-[#1a1f26] border border-[#232a35] hover:border-indigo-500/40 transition-colors"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="p-2 rounded-lg bg-[#13161c] border border-[#232a35] text-indigo-400 shrink-0">
-                              <FileText className="w-4 h-4" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-medium text-gray-200 truncate">
-                                {mat.title}
-                              </p>
-                              <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                                <span className="inline-block px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-mono text-indigo-300 uppercase">
-                                  {parseMaterialFileType(mat.file_type).fileType}
-                                </span>
-                                <span
-                                  className={`inline-block px-1.5 py-0.5 rounded border text-[10px] font-mono ${
-                                    parseMaterialFileType(mat.file_type).category === "Práctica"
-                                      ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
-                                      : "bg-cyan-500/15 border-cyan-500/30 text-cyan-300"
-                                  }`}
-                                >
-                                  {parseMaterialFileType(mat.file_type).category}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
+                    {/* 3 Pestañas: Teoría / Práctica / Videos de Complemento */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-1 rounded-xl bg-[#0d111a] border border-[#232a35]">
+                      <button
+                        type="button"
+                        onClick={() => setResourceTab("Teoría")}
+                        className={`py-2 px-3 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${
+                          resourceTab === "Teoría"
+                            ? "bg-cyan-500/20 text-cyan-200 border border-cyan-400/35"
+                            : "text-gray-400 hover:text-gray-200"
+                        }`}
+                      >
+                        <span>Teoría ({theoryMats.length})</span>
+                      </button>
 
-                          <div className="flex items-center gap-2 shrink-0">
-                            <a
-                              href={previewUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#13161c] hover:bg-[#232a35] border border-[#232a35] text-xs text-gray-200 transition-colors"
+                      <button
+                        type="button"
+                        onClick={() => setResourceTab("Práctica")}
+                        className={`py-2 px-3 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${
+                          resourceTab === "Práctica"
+                            ? "bg-emerald-500/20 text-emerald-200 border border-emerald-400/35"
+                            : "text-gray-400 hover:text-gray-200"
+                        }`}
+                      >
+                        <span>Práctica ({practiceMats.length})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setResourceTab("Videos de Complemento")}
+                        className={`py-2 px-3 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${
+                          resourceTab === "Videos de Complemento"
+                            ? "bg-indigo-500/25 text-indigo-200 border border-indigo-400/40"
+                            : "text-gray-400 hover:text-gray-200"
+                        }`}
+                      >
+                        <span>Videos de Complemento ({videoMats.length})</span>
+                      </button>
+                    </div>
+
+                    {isLoadingMaterials ? (
+                      <div className="py-4 flex items-center gap-2 text-xs text-gray-400">
+                        <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+                        <span>Cargando recursos...</span>
+                      </div>
+                    ) : visibleMats.length === 0 ? (
+                      <p className="text-xs text-gray-500 py-3 text-center">
+                        No hay recursos en {resourceTab} para esta clase.
+                      </p>
+                    ) : (
+                      <div className="space-y-3">
+                        {visibleMats.map((mat) => {
+                          const parsed = parseMaterialFileType(mat.file_type);
+                          const { previewUrl, downloadUrl } = getDriveLinks(mat.drive_url);
+                          const isVideoCategory =
+                            parsed.category === "Videos de Complemento";
+                          const isExpanded = expandedVideoId === mat.id;
+
+                          return (
+                            <div
+                              key={mat.id}
+                              className="p-3.5 rounded-xl bg-[#1a1f26] border border-[#232a35] hover:border-indigo-500/40 transition-colors space-y-3"
                             >
-                              <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
-                              <span>Abrir / Ver</span>
-                            </a>
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="p-2 rounded-lg bg-[#13161c] border border-[#232a35] text-indigo-400 shrink-0">
+                                    {isVideoCategory ? (
+                                      <PlayCircle className="w-4 h-4 text-indigo-400" />
+                                    ) : (
+                                      <FileText className="w-4 h-4" />
+                                    )}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-medium text-gray-200 truncate">
+                                      {mat.title}
+                                    </p>
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                      <span
+                                        className={`inline-block px-1.5 py-0.5 rounded border text-[10px] font-mono ${
+                                          parsed.category === "Videos de Complemento"
+                                            ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-300"
+                                            : parsed.category === "Práctica"
+                                              ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
+                                              : "bg-cyan-500/15 border-cyan-500/30 text-cyan-300"
+                                        }`}
+                                      >
+                                        {parsed.category}
+                                      </span>
+                                      <span className="inline-block px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-mono text-indigo-300 uppercase">
+                                        {parsed.fileType}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
 
-                            {downloadUrl && (
-                              <a
-                                href={downloadUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-medium text-white transition-colors"
-                              >
-                                <Download className="w-3.5 h-3.5" />
-                                <span>Descargar</span>
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                                <div className="flex items-center gap-2 shrink-0">
+                                  {isVideoCategory ? (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setExpandedVideoId((prev) =>
+                                            prev === mat.id ? null : mat.id
+                                          )
+                                        }
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-medium text-white transition-colors"
+                                      >
+                                        <PlayCircle className="w-3.5 h-3.5" />
+                                        <span>
+                                          {isExpanded ? "Ocultar video" : "Ver video"}
+                                        </span>
+                                      </button>
+                                      <a
+                                        href={previewUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#13161c] hover:bg-[#232a35] border border-[#232a35] text-xs text-gray-200 transition-colors"
+                                      >
+                                        <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
+                                        <span>Abrir enlace</span>
+                                      </a>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <a
+                                        href={previewUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#13161c] hover:bg-[#232a35] border border-[#232a35] text-xs text-gray-200 transition-colors"
+                                      >
+                                        <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
+                                        <span>Abrir / Ver</span>
+                                      </a>
+
+                                      {downloadUrl && (
+                                        <a
+                                          href={downloadUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-medium text-white transition-colors"
+                                        >
+                                          <Download className="w-3.5 h-3.5" />
+                                          <span>Descargar</span>
+                                        </a>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+
+                              {isVideoCategory && isExpanded && (
+                                <div className="pt-2 border-t border-[#232a35]">
+                                  <VideoPlayer
+                                    videoUrl={mat.drive_url}
+                                    title={mat.title}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                );
+              })()}
             </>
           ) : (
             <div className="p-10 rounded-xl bg-[#13161c] border border-[#232a35] text-center space-y-4">

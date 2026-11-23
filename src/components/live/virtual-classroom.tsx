@@ -179,13 +179,35 @@ export function VirtualClassroom({
       } else if (container.webkitRequestFullscreen) {
         await container.webkitRequestFullscreen();
       } else {
-        setIsCssFullscreen(true);
+        const activeVideo = (isBroadcasting
+          ? localVideoRef.current
+          : remoteVideoRef.current) as
+          | (HTMLVideoElement & { webkitEnterFullscreen?: () => void })
+          | null;
+        if (activeVideo?.webkitEnterFullscreen) {
+          activeVideo.webkitEnterFullscreen();
+        } else {
+          setIsCssFullscreen(true);
+        }
       }
     } catch {
       // Fallback automático para iOS Safari u otros navegadores móviles restrictivos
+      const activeVideo = (isBroadcasting
+        ? localVideoRef.current
+        : remoteVideoRef.current) as
+        | (HTMLVideoElement & { webkitEnterFullscreen?: () => void })
+        | null;
+      if (activeVideo?.webkitEnterFullscreen) {
+        try {
+          activeVideo.webkitEnterFullscreen();
+          return;
+        } catch {
+          // Continuar con fallback CSS
+        }
+      }
       setIsCssFullscreen(true);
     }
-  }, [isCssFullscreen]);
+  }, [isCssFullscreen, isBroadcasting]);
 
   // Handlers de Zoom & Pan en PC
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {

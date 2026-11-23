@@ -27,6 +27,7 @@ import {
   MATERIAL_CATEGORIES,
   MaterialCategory,
   encodeMaterialFileType,
+  inferResourceFileType,
   parseMaterialFileType,
 } from "@/utils/materialCategory";
 
@@ -68,6 +69,21 @@ export default function AdminDashboardPage() {
   const [videoUrl, setVideoUrl] = useState("");
   const [description, setDescription] = useState("");
   const [isSavingLesson, setIsSavingLesson] = useState(false);
+
+  // Recursos adjuntos al crear nueva clase
+  const [pendingResources, setPendingResources] = useState<
+    Array<{ id: string; title: string; category: MaterialCategory; url: string }>
+  >([]);
+  const [pendingResTitle, setPendingResTitle] = useState("");
+  const [pendingResCategory, setPendingResCategory] = useState<MaterialCategory>("Teoría");
+  const [pendingResUrl, setPendingResUrl] = useState("");
+
+  // Gestor de recursos de clase existente
+  const [managingLessonId, setManagingLessonId] = useState<string | null>(null);
+  const [lessonResTitle, setLessonResTitle] = useState("");
+  const [lessonResCategory, setLessonResCategory] = useState<MaterialCategory>("Teoría");
+  const [lessonResUrl, setLessonResUrl] = useState("");
+  const [isSavingLessonResource, setIsSavingLessonResource] = useState(false);
 
   // Formulario: Agregar Documento (materials)
   const [selectedLessonId, setSelectedLessonId] = useState("");
@@ -182,6 +198,103 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleAddPendingResource = () => {
+    setFeedback(null);
+    if (!pendingResTitle.trim() || !pendingResUrl.trim()) {
+      setFeedback({
+        type: "error",
+        text: "Completa el título y el enlace del recurso antes de adjuntarlo.",
+      });
+      return;
+    }
+    if (!isValidHttpUrl(pendingResUrl)) {
+      setFeedback({
+        type: "error",
+        text: "El enlace del recurso debe comenzar con https:// o http://.",
+      });
+      return;
+    }
+
+    setPendingResources((prev) => [
+      ...prev,
+      {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        title: pendingResTitle.trim(),
+        category: pendingResCategory,
+        url: pendingResUrl.trim(),
+      },
+    ]);
+    setPendingResTitle("");
+    setPendingResUrl("");
+    setPendingResCategory("Teoría");
+  };
+
+  const handleCreateLessonResource = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!managingLessonId) return;
+    setFeedback(null);
+
+    if (!lessonResTitle.trim() || !lessonResUrl.trim()) {
+      setFeedback({
+        type: "error",
+        text: "Ingresa el título y la URL del recurso para esta clase.",
+      });
+      return;
+    }
+    if (!isValidHttpUrl(lessonResUrl)) {
+      setFeedback({
+        type: "error",
+        text: "Ingresa una URL válida que comience con https:// o http://.",
+      });
+      return;
+    }
+
+    const supabase = createClient();
+    setIsSavingLessonResource(true);
+    try {
+      const inferredType = inferResourceFileType(lessonResUrl.trim(), lessonResCategory);
+      const { data, error } = await supabase
+        .from("materials")
+        .insert({
+          lesson_id: managingLessonId,
+          title: lessonResTitle.trim(),
+          file_type: encodeMaterialFileType(inferredType, lessonResCategory),
+          drive_url: lessonResUrl.trim(),
+        })
+        .select("id, lesson_id, title, file_type, drive_url, created_at, lessons(title)")
+        .single();
+
+      if (error) {
+        setFeedback({ type: "error", text: `Error al adjuntar recurso: ${error.message}` });
+      } else if (data) {
+        const createdMaterial = data as unknown as MaterialWithLesson;
+        const parsed = parseMaterialFileType(createdMaterial.file_type);
+        setMaterials((prev) => [createdMaterial, ...prev]);
+        setLessonResTitle("");
+        setLessonResUrl("");
+        setFeedback({
+          type: "success",
+          text: `Recurso "${createdMaterial.title}" (${parsed.category}) vinculado a la clase.`,
+        });
+        void publishNotification({
+          id: `archivo-${createdMaterial.id}`,
+          tipo: "archivo",
+          titulo: createdMaterial.title,
+          modulo: createdMaterial.lessons?.title
+            ? `Material (${parsed.category}) en ${createdMaterial.lessons.title}`
+            : `${parsed.category} · ${parsed.fileType}`,
+          created_at: createdMaterial.created_at || new Date().toISOString(),
+          href: `/courses/general/lessons/${managingLessonId}`,
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      setFeedback({ type: "error", text: "Error inesperado al guardar el recurso." });
+    } finally {
+      setIsSavingLessonResource(false);
+    }
+  };
+
   const handleCreateLesson = async (e: React.FormEvent) => {
     e.preventDefault();
     setFeedback(null);
@@ -211,6 +324,31 @@ export default function AdminDashboardPage() {
         setFeedback({ type: "error", text: `Error al guardar clase: ${error.message}` });
       } else if (data) {
         const created = data as LessonItem;
+
+        // Guardar recursos adjuntos en Supabase vinculados a created.id
+        if (pendingResources.length > 0) {
+          const rowsToInsert = pendingResources.map((res) => ({
+            lesson_id: created.id,
+            title: res.title,
+            file_type: encodeMaterialFileType(
+              inferResourceFileType(res.url, res.category),
+              res.category
+            ),
+            drive_url: res.url,
+          }));
+          const { data: insertedMats } = await supabase
+            .from("materials")
+            .insert(rowsToInsert)
+            .select("id, lesson_id, title, file_type, drive_url, created_at, lessons(title)");
+          if (Array.isArray(insertedMats) && insertedMats.length > 0) {
+            setMaterials((prev) => [
+              ...(insertedMats as unknown as MaterialWithLesson[]),
+              ...prev,
+            ]);
+          }
+          setPendingResources([]);
+        }
+
         setLessons((prev) => [...prev, created]);
         if (!selectedLessonId) setSelectedLessonId(created.id);
         setLessonTitle("");
@@ -502,6 +640,113 @@ export default function AdminDashboardPage() {
                 />
               </div>
 
+              {/* Recursos adjuntos antes de publicar la clase */}
+              <div className="p-4 rounded-xl bg-[#0d111a] border border-[#232a35] space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-gray-200 flex items-center gap-2">
+                    <FileText className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Recursos de la Clase (Teoría, Práctica o Videos de Complemento)</span>
+                  </span>
+                  <span className="text-[11px] font-mono text-gray-500">
+                    {pendingResources.length} adjunto{pendingResources.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
+                  <div className="md:col-span-4">
+                    <label className="block text-[10px] font-mono text-gray-400 mb-1">
+                      Título del recurso
+                    </label>
+                    <input
+                      type="text"
+                      value={pendingResTitle}
+                      onChange={(e) => setPendingResTitle(e.target.value)}
+                      placeholder="Ej. Guía PDF / Video extra"
+                      className="w-full bg-[#1a1f26] border border-[#232a35] rounded-lg px-3 py-2 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div className="md:col-span-3">
+                    <label className="block text-[10px] font-mono text-gray-400 mb-1">
+                      Categoría
+                    </label>
+                    <select
+                      value={pendingResCategory}
+                      onChange={(e) => setPendingResCategory(e.target.value as MaterialCategory)}
+                      className="w-full bg-[#1a1f26] border border-[#232a35] rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-indigo-500"
+                    >
+                      {MATERIAL_CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="md:col-span-3">
+                    <label className="block text-[10px] font-mono text-gray-400 mb-1">
+                      Enlace / URL
+                    </label>
+                    <input
+                      type="url"
+                      value={pendingResUrl}
+                      onChange={(e) => setPendingResUrl(e.target.value)}
+                      placeholder="https://drive.google.com/... o youtube.com/..."
+                      className="w-full bg-[#1a1f26] border border-[#232a35] rounded-lg px-3 py-2 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <button
+                      type="button"
+                      onClick={handleAddPendingResource}
+                      className="w-full px-3 py-2 rounded-lg bg-[#1a1f26] hover:bg-indigo-600/25 border border-indigo-500/35 text-xs font-medium text-indigo-200 transition-colors"
+                    >
+                      + Adjuntar
+                    </button>
+                  </div>
+                </div>
+
+                {pendingResources.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    {pendingResources.map((res) => (
+                      <div
+                        key={res.id}
+                        className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-[#13161c] border border-[#232a35] text-xs"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className={`px-1.5 py-0.5 rounded border text-[10px] font-mono shrink-0 ${
+                              res.category === "Videos de Complemento"
+                                ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-300"
+                                : res.category === "Práctica"
+                                  ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
+                                  : "bg-cyan-500/15 border-cyan-500/30 text-cyan-300"
+                            }`}
+                          >
+                            {res.category}
+                          </span>
+                          <span className="font-medium text-gray-200 truncate">{res.title}</span>
+                          <span className="text-[11px] text-gray-500 truncate hidden sm:inline">
+                            ({res.url})
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPendingResources((prev) => prev.filter((item) => item.id !== res.id))
+                          }
+                          className="p-1 text-gray-400 hover:text-rose-400 transition-colors shrink-0"
+                          title="Quitar recurso"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="flex justify-end">
                 <button
                   type="submit"
@@ -566,6 +811,21 @@ export default function AdminDashboardPage() {
                         </td>
                         <td className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setManagingLessonId((prev) =>
+                                  prev === lesson.id ? null : lesson.id
+                                )
+                              }
+                              className={`px-2.5 py-1 rounded text-xs transition-colors border ${
+                                managingLessonId === lesson.id
+                                  ? "bg-cyan-500/20 border-cyan-400/40 text-cyan-200"
+                                  : "bg-[#1a1f26] border-[#232a35] hover:border-indigo-500/40 text-gray-300 hover:text-white"
+                              }`}
+                            >
+                              Recursos ({materials.filter((m) => m.lesson_id === lesson.id).length})
+                            </button>
                             <Link
                               href={`/courses/general/lessons/${lesson.id}`}
                               className="px-2.5 py-1 rounded bg-[#1a1f26] hover:bg-indigo-600 text-gray-300 hover:text-white transition-colors"
@@ -589,6 +849,136 @@ export default function AdminDashboardPage() {
               </div>
             )}
           </div>
+
+          {/* Gestor de Recursos para la Clase Seleccionada */}
+          {managingLessonId && (() => {
+            const targetLesson = lessons.find((l) => l.id === managingLessonId);
+            const lessonResources = materials.filter((m) => m.lesson_id === managingLessonId);
+            if (!targetLesson) return null;
+
+            return (
+              <div className="p-6 rounded-xl bg-[#13161c] border border-indigo-500/35 space-y-4">
+                <div className="flex items-center justify-between gap-2 border-b border-[#232a35] pb-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">
+                      Recursos de la Clase: {targetLesson.title}
+                    </h3>
+                    <p className="text-xs text-gray-400">
+                      Agrega o elimina materiales de Teoría, Práctica y Videos de Complemento vinculados a esta clase.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setManagingLessonId(null)}
+                    className="px-2.5 py-1 rounded-lg bg-[#1a1f26] hover:bg-[#232a35] text-xs text-gray-300"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+
+                <form onSubmit={handleCreateLessonResource} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                  <div className="md:col-span-4">
+                    <label className="block text-[11px] font-mono text-gray-400 mb-1">
+                      Título del recurso *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={lessonResTitle}
+                      onChange={(e) => setLessonResTitle(e.target.value)}
+                      placeholder="Ej. Diapositivas / Ejercicio / Video extra"
+                      className="w-full bg-[#1a1f26] border border-[#232a35] rounded-lg px-3 py-2 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div className="md:col-span-3">
+                    <label className="block text-[11px] font-mono text-gray-400 mb-1">
+                      Categoría *
+                    </label>
+                    <select
+                      value={lessonResCategory}
+                      onChange={(e) => setLessonResCategory(e.target.value as MaterialCategory)}
+                      className="w-full bg-[#1a1f26] border border-[#232a35] rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-indigo-500"
+                    >
+                      {MATERIAL_CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="md:col-span-3">
+                    <label className="block text-[11px] font-mono text-gray-400 mb-1">
+                      Enlace / URL *
+                    </label>
+                    <input
+                      type="url"
+                      required
+                      value={lessonResUrl}
+                      onChange={(e) => setLessonResUrl(e.target.value)}
+                      placeholder="https://..."
+                      className="w-full bg-[#1a1f26] border border-[#232a35] rounded-lg px-3 py-2 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <button
+                      type="submit"
+                      disabled={isSavingLessonResource}
+                      className="w-full px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-xs font-medium text-white transition-colors"
+                    >
+                      {isSavingLessonResource ? "Guardando..." : "+ Agregar"}
+                    </button>
+                  </div>
+                </form>
+
+                {lessonResources.length === 0 ? (
+                  <p className="text-xs text-gray-500 py-2">
+                    Esta clase aún no tiene recursos adjuntos.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {lessonResources.map((mat) => {
+                      const parsed = parseMaterialFileType(mat.file_type);
+                      return (
+                        <div
+                          key={mat.id}
+                          className="flex items-center justify-between gap-3 p-3 rounded-lg bg-[#1a1f26] border border-[#232a35] text-xs"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span
+                              className={`px-1.5 py-0.5 rounded border text-[10px] font-mono shrink-0 ${
+                                parsed.category === "Videos de Complemento"
+                                  ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-300"
+                                  : parsed.category === "Práctica"
+                                    ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
+                                    : "bg-cyan-500/15 border-cyan-500/30 text-cyan-300"
+                              }`}
+                            >
+                              {parsed.category}
+                            </span>
+                            <span className="font-medium text-white truncate">{mat.title}</span>
+                            <span className="text-[10px] font-mono text-gray-400 shrink-0">
+                              {parsed.fileType}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteMaterial(mat.id)}
+                            className="p-1.5 text-gray-400 hover:text-rose-400 rounded hover:bg-[#232a35] transition-colors shrink-0"
+                            title="Eliminar recurso"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 
