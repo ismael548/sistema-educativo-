@@ -55,9 +55,10 @@ function getEmbedInfo(rawUrl: string): {
   embedUrl: string | null;
   provider: "youtube" | "drive" | "other";
   youtubeId: string | null;
+  driveId: string | null;
 } {
   if (!rawUrl || !rawUrl.trim()) {
-    return { embedUrl: null, provider: "other", youtubeId: null };
+    return { embedUrl: null, provider: "other", youtubeId: null, driveId: null };
   }
 
   const url = rawUrl.trim();
@@ -71,6 +72,7 @@ function getEmbedInfo(rawUrl: string): {
       embedUrl: `https://www.youtube.com/embed/${ytMatch[1]}?controls=1&rel=0&modestbranding=1&playsinline=1&fs=1`,
       provider: "youtube",
       youtubeId: ytMatch[1],
+      driveId: null,
     };
   }
 
@@ -82,20 +84,21 @@ function getEmbedInfo(rawUrl: string): {
         embedUrl: `https://drive.google.com/file/d/${driveId}/preview`,
         provider: "drive",
         youtubeId: null,
+        driveId,
       };
     }
   }
 
   // 3. Fallback si ya es una URL embebible
   if (url.startsWith("http://") || url.startsWith("https://")) {
-    return { embedUrl: url, provider: "other", youtubeId: null };
+    return { embedUrl: url, provider: "other", youtubeId: null, driveId: null };
   }
 
-  return { embedUrl: null, provider: "other", youtubeId: null };
+  return { embedUrl: null, provider: "other", youtubeId: null, driveId: null };
 }
 
 export function VideoPlayer({ videoUrl, title }: VideoPlayerProps) {
-  const { embedUrl, provider, youtubeId } = useMemo(
+  const { embedUrl, provider, youtubeId, driveId } = useMemo(
     () => getEmbedInfo(videoUrl),
     [videoUrl]
   );
@@ -103,10 +106,27 @@ export function VideoPlayer({ videoUrl, title }: VideoPlayerProps) {
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const ytHostRef = useRef<HTMLDivElement>(null);
   const ytPlayerRef = useRef<YTPlayerInstance | null>(null);
+  const driveVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const [isYtReady, setIsYtReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [driveNativeFailed, setDriveNativeFailed] = useState(false);
+
+  // Detectar viewport móvil (< 768px / md)
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const updateViewport = () => setIsMobileViewport(mediaQuery.matches);
+    updateViewport();
+    mediaQuery.addEventListener("change", updateViewport);
+    return () => mediaQuery.removeEventListener("change", updateViewport);
+  }, []);
+
+  // Reiniciar estado de fallback de Drive al cambiar de video
+  useEffect(() => {
+    setDriveNativeFailed(false);
+  }, [driveId]);
 
   // Sincronizar estado de pantalla completa
   useEffect(() => {
@@ -192,7 +212,6 @@ export function VideoPlayer({ videoUrl, title }: VideoPlayerProps) {
           },
           onStateChange: (event) => {
             if (!isMounted) return;
-            // YT.PlayerState.PLAYING === 1
             setIsPlaying(event.data === 1);
           },
         },
@@ -290,9 +309,17 @@ export function VideoPlayer({ videoUrl, title }: VideoPlayerProps) {
         await container.requestFullscreen();
       } else if (container.webkitRequestFullscreen) {
         await container.webkitRequestFullscreen();
+      } else {
+        const videoEl = driveVideoRef.current as
+          | (HTMLVideoElement & { webkitEnterFullscreen?: () => void })
+          | null;
+        videoEl?.webkitEnterFullscreen?.();
       }
     } catch {
-      // Ignorar si el navegador bloquea fullscreen
+      const videoEl = driveVideoRef.current as
+        | (HTMLVideoElement & { webkitEnterFullscreen?: () => void })
+        | null;
+      videoEl?.webkitEnterFullscreen?.();
     }
 
     try {
@@ -319,9 +346,13 @@ export function VideoPlayer({ videoUrl, title }: VideoPlayerProps) {
     );
   }
 
+  const driveDirectUrl = driveId
+    ? `https://drive.google.com/uc?export=download&id=${driveId}`
+    : null;
+
   return (
     <div className="w-full flex flex-col gap-2">
-      {/* Marco limpio del reproductor sin overlays ni capas que oscurezcan o intercepten toques */}
+      {/* Marco limpio del reproductor 16:9 */}
       <div
         ref={playerContainerRef}
         className="relative w-full aspect-video overflow-hidden rounded-xl bg-black border border-[#232a35] shadow-surface"
@@ -332,16 +363,62 @@ export function VideoPlayer({ videoUrl, title }: VideoPlayerProps) {
             className="w-full h-full pointer-events-auto"
             aria-label={title}
           />
+        ) : provider === "drive" && driveId ? (
+          isMobileViewport ? (
+            driveNativeFailed ? (
+              /* Fallback elegante en móvil si Drive bloquea descarga directa (>100 MB) */
+              <div className="w-full h-full bg-gradient-to-br from-[#0b1120] via-[#0d152a] to-[#050811] flex flex-col items-center justify-center text-center p-5 gap-3">
+                <div className="w-14 h-14 rounded-full bg-indigo-500/20 border border-indigo-400/40 flex items-center justify-center text-cyan-300 shadow-[0_0_24px_rgba(56,189,248,0.25)]">
+                  <Play className="w-6 h-6 fill-current ml-0.5" />
+                </div>
+                <div className="space-y-1 max-w-xs">
+                  <p className="text-sm font-semibold text-white line-clamp-2">
+                    {title || "Video de la Clase"}
+                  </p>
+                  <p className="text-[11px] text-gray-400">
+                    Este video de Google Drive se reproduce mejor en pantalla completa nativa.
+                  </p>
+                </div>
+                <a
+                  href={videoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-950/50 transition-colors touch-manipulation"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>Reproducir Video en Pantalla Completa</span>
+                </a>
+              </div>
+            ) : (
+              /* Reproductor HTML5 nativo en móvil (nítido, ±10s, zoom y fullscreen horizontal real) */
+              <video
+                ref={driveVideoRef}
+                src={driveDirectUrl || undefined}
+                controls
+                playsInline
+                preload="metadata"
+                onError={() => setDriveNativeFailed(true)}
+                className="w-full h-full object-contain bg-black pointer-events-auto"
+              />
+            )
+          ) : (
+            /* Escritorio (md: en adelante): reproductor embebido /preview normal sin cambios */
+            <iframe
+              src={embedUrl}
+              title={title}
+              className="hidden md:block w-full h-full border-0 pointer-events-auto"
+              allow="autoplay; fullscreen; picture-in-picture"
+              allowFullScreen
+              loading="lazy"
+              referrerPolicy="strict-origin-when-cross-origin"
+            />
+          )
         ) : (
           <iframe
             src={embedUrl}
             title={title}
             className="w-full h-full border-0 block pointer-events-auto"
-            allow={
-              provider === "drive"
-                ? "autoplay; fullscreen; picture-in-picture"
-                : "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
-            }
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
             allowFullScreen
             loading="lazy"
             referrerPolicy="strict-origin-when-cross-origin"
@@ -393,19 +470,21 @@ export function VideoPlayer({ videoUrl, title }: VideoPlayerProps) {
             </>
           )}
 
-          <button
-            type="button"
-            onClick={() => void handleToggleFullscreen()}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/35 text-xs font-medium text-indigo-200 transition-colors touch-manipulation"
-            title={isFullscreen ? "Salir de Pantalla Completa" : "Pantalla Completa"}
-          >
-            {isFullscreen ? (
-              <Minimize2 className="w-3.5 h-3.5 text-indigo-300" />
-            ) : (
-              <Maximize2 className="w-3.5 h-3.5 text-indigo-300" />
-            )}
-            <span>{isFullscreen ? "Salir" : "Pantalla Completa"}</span>
-          </button>
+          {!(provider === "drive" && isMobileViewport && driveNativeFailed) && (
+            <button
+              type="button"
+              onClick={() => void handleToggleFullscreen()}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/35 text-xs font-medium text-indigo-200 transition-colors touch-manipulation"
+              title={isFullscreen ? "Salir de Pantalla Completa" : "Pantalla Completa"}
+            >
+              {isFullscreen ? (
+                <Minimize2 className="w-3.5 h-3.5 text-indigo-300" />
+              ) : (
+                <Maximize2 className="w-3.5 h-3.5 text-indigo-300" />
+              )}
+              <span>{isFullscreen ? "Salir" : "Pantalla Completa"}</span>
+            </button>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[11px] text-gray-500 ml-auto">
