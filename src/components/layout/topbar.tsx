@@ -2,9 +2,10 @@
 
 import React from "react";
 import Link from "next/link";
-import { Bell, Search, Menu, X } from "lucide-react";
+import { Search, Menu, X } from "lucide-react";
 import logoImg from "@/assets/noxius-brand.jpg";
 import { useUserRole } from "@/components/providers/role-provider";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 
 interface TopbarProps {
   title?: string;
@@ -99,14 +100,7 @@ export function Topbar({
         </div>
 
         {/* Notifications */}
-        <button
-          type="button"
-          className="relative p-2 text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
-          aria-label="Notificaciones"
-        >
-          <Bell className="w-4 h-4" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-500 rounded-full" />
-        </button>
+        <NotificationBell />
       </div>
     </header>
   );

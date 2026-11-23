@@ -22,6 +22,13 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { LessonItem, MaterialItem, SubmissionItem } from "@/lib/supabase/types";
 import { getDriveLinks, isValidHttpUrl } from "@/utils/driveHelpers";
+import { publishNotification } from "@/lib/notifications";
+import {
+  MATERIAL_CATEGORIES,
+  MaterialCategory,
+  encodeMaterialFileType,
+  parseMaterialFileType,
+} from "@/utils/materialCategory";
 
 type MaterialWithLesson = MaterialItem & {
   lessons?: { title: string } | null;
@@ -66,6 +73,7 @@ export default function AdminDashboardPage() {
   const [selectedLessonId, setSelectedLessonId] = useState("");
   const [materialTitle, setMaterialTitle] = useState("");
   const [materialType, setMaterialType] = useState<string>(MATERIAL_TYPES[0]);
+  const [materialCategory, setMaterialCategory] = useState<MaterialCategory>("Teoría");
   const [driveUrl, setDriveUrl] = useState("");
   const [isSavingMaterial, setIsSavingMaterial] = useState(false);
 
@@ -210,6 +218,14 @@ export default function AdminDashboardPage() {
         setDescription("");
         setOrderIndex((prev) => prev + 1);
         setFeedback({ type: "success", text: `Clase "${created.title}" creada correctamente.` });
+        void publishNotification({
+          id: `clase-${created.id}`,
+          tipo: "clase",
+          titulo: created.title,
+          modulo: created.module_name || "Nueva clase disponible",
+          created_at: created.created_at || new Date().toISOString(),
+          href: `/courses/general/lessons/${created.id}`,
+        });
       }
     } catch (err) {
       console.error(err);
@@ -260,7 +276,7 @@ export default function AdminDashboardPage() {
         .insert({
           lesson_id: selectedLessonId || null,
           title: materialTitle.trim(),
-          file_type: materialType,
+          file_type: encodeMaterialFileType(materialType, materialCategory),
           drive_url: driveUrl.trim(),
         })
         .select("id, lesson_id, title, file_type, drive_url, created_at, lessons(title)")
@@ -269,14 +285,27 @@ export default function AdminDashboardPage() {
       if (error) {
         setFeedback({ type: "error", text: `Error al guardar documento: ${error.message}` });
       } else if (data) {
-        setMaterials((prev) => [data as unknown as MaterialWithLesson, ...prev]);
+        const createdMaterial = data as unknown as MaterialWithLesson;
+        const parsed = parseMaterialFileType(createdMaterial.file_type);
+        setMaterials((prev) => [createdMaterial, ...prev]);
         setMaterialTitle("");
         setDriveUrl("");
+        setMaterialCategory("Teoría");
         setFeedback({
           type: "success",
           text: selectedLessonId
             ? "Documento agregado y vinculado a la clase."
             : "Documento general guardado correctamente.",
+        });
+        void publishNotification({
+          id: `archivo-${createdMaterial.id}`,
+          tipo: "archivo",
+          titulo: createdMaterial.title,
+          modulo: createdMaterial.lessons?.title
+            ? `Material (${parsed.category}) en ${createdMaterial.lessons.title}`
+            : `${parsed.category} · ${parsed.fileType} en Hub`,
+          created_at: createdMaterial.created_at || new Date().toISOString(),
+          href: "/files",
         });
       }
     } catch (err) {
@@ -573,7 +602,7 @@ export default function AdminDashboardPage() {
             </h2>
 
             <form onSubmit={handleCreateMaterial} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-[11px] font-mono text-gray-400 mb-1.5">
                     Seleccionar Clase (Opcional)
@@ -618,6 +647,24 @@ export default function AdminDashboardPage() {
                     {MATERIAL_TYPES.map((typeOption) => (
                       <option key={typeOption} value={typeOption}>
                         {typeOption}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-mono text-gray-400 mb-1.5">
+                    Categoría *
+                  </label>
+                  <select
+                    required
+                    value={materialCategory}
+                    onChange={(e) => setMaterialCategory(e.target.value as MaterialCategory)}
+                    className="w-full bg-[#1a1f26] border border-[#232a35] rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-indigo-500"
+                  >
+                    {MATERIAL_CATEGORIES.map((categoryOption) => (
+                      <option key={categoryOption} value={categoryOption}>
+                        {categoryOption}
                       </option>
                     ))}
                   </select>
@@ -689,6 +736,7 @@ export default function AdminDashboardPage() {
                   <tbody className="divide-y divide-[#232a35] text-gray-300">
                     {materials.map((mat) => {
                       const { previewUrl, downloadUrl } = getDriveLinks(mat.drive_url);
+                      const parsed = parseMaterialFileType(mat.file_type);
                       const lessonLabel = mat.lesson_id
                         ? mat.lessons?.title || "Clase vinculada"
                         : "Recurso General";
@@ -696,9 +744,20 @@ export default function AdminDashboardPage() {
                         <tr key={mat.id} className="hover:bg-[#1a1f26]/50 transition-colors">
                           <td className="py-3 px-4 font-medium text-white">{mat.title}</td>
                           <td className="py-3 px-4">
-                            <span className="px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 text-[10px] font-mono">
-                              {mat.file_type}
-                            </span>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span
+                                className={`px-2 py-0.5 rounded border text-[10px] font-mono ${
+                                  parsed.category === "Práctica"
+                                    ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                                    : "bg-cyan-500/15 text-cyan-300 border-cyan-500/30"
+                                }`}
+                              >
+                                {parsed.category}
+                              </span>
+                              <span className="px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 text-[10px] font-mono">
+                                {parsed.fileType}
+                              </span>
+                            </div>
                           </td>
                           <td className="py-3 px-4 text-xs">
                             <span

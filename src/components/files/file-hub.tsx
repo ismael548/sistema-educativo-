@@ -18,6 +18,13 @@ import { createClient } from "@/lib/supabase/client";
 import type { LessonItem, MaterialItem, SubmissionItem } from "@/lib/supabase/types";
 import { getDriveLinks, isValidHttpUrl } from "@/utils/driveHelpers";
 import { useUserRole } from "@/components/providers/role-provider";
+import { publishNotification } from "@/lib/notifications";
+import {
+  MATERIAL_CATEGORIES,
+  MaterialCategory,
+  encodeMaterialFileType,
+  parseMaterialFileType,
+} from "@/utils/materialCategory";
 
 interface FileHubProps {
   lessonId?: string;
@@ -44,6 +51,7 @@ const MATERIAL_TYPES = [
 export function FileHub({ lessonId }: FileHubProps) {
   const { userName: contextUserName } = useUserRole();
   const [hubTab, setHubTab] = useState<"materials" | "submissions">("materials");
+  const [materialCategoryTab, setMaterialCategoryTab] = useState<MaterialCategory>("Teoría");
 
   const [lessons, setLessons] = useState<LessonItem[]>([]);
   const [materials, setMaterials] = useState<MaterialWithLesson[]>([]);
@@ -56,6 +64,7 @@ export function FileHub({ lessonId }: FileHubProps) {
   );
   const [title, setTitle] = useState("");
   const [fileType, setFileType] = useState<string>(MATERIAL_TYPES[0]);
+  const [materialCategory, setMaterialCategory] = useState<MaterialCategory>("Teoría");
   const [driveUrl, setDriveUrl] = useState("");
   const [isSubmittingMaterial, setIsSubmittingMaterial] = useState(false);
 
@@ -160,7 +169,7 @@ export function FileHub({ lessonId }: FileHubProps) {
         .insert({
           lesson_id: selectedLessonId || null,
           title: title.trim(),
-          file_type: fileType,
+          file_type: encodeMaterialFileType(fileType, materialCategory),
           drive_url: driveUrl.trim(),
         })
         .select("id, lesson_id, title, file_type, drive_url, created_at, lessons(title)")
@@ -169,12 +178,26 @@ export function FileHub({ lessonId }: FileHubProps) {
       if (error) {
         setStatusMessage({ type: "error", text: `Error al guardar: ${error.message}` });
       } else if (data) {
-        setMaterials((prev) => [data as unknown as MaterialWithLesson, ...prev]);
+        const createdMaterial = data as unknown as MaterialWithLesson;
+        const parsed = parseMaterialFileType(createdMaterial.file_type);
+        setMaterials((prev) => [createdMaterial, ...prev]);
         setTitle("");
         setDriveUrl("");
+        setMaterialCategory("Teoría");
+        setMaterialCategoryTab(parsed.category);
         setStatusMessage({
           type: "success",
           text: "Documento registrado exitosamente.",
+        });
+        void publishNotification({
+          id: `archivo-${createdMaterial.id}`,
+          tipo: "archivo",
+          titulo: createdMaterial.title,
+          modulo: createdMaterial.lessons?.title
+            ? `Material (${parsed.category}) en ${createdMaterial.lessons.title}`
+            : `${parsed.category} · ${parsed.fileType} en Hub`,
+          created_at: createdMaterial.created_at || new Date().toISOString(),
+          href: "/files",
         });
       }
     } catch (err) {
@@ -285,7 +308,17 @@ export function FileHub({ lessonId }: FileHubProps) {
       </div>
 
       {/* PESTAÑA 1: MATERIALES DEL CURSO */}
-      {hubTab === "materials" && (
+      {hubTab === "materials" && (() => {
+        const theoryMaterials = materials.filter(
+          (item) => parseMaterialFileType(item.file_type).category === "Teoría"
+        );
+        const practiceMaterials = materials.filter(
+          (item) => parseMaterialFileType(item.file_type).category === "Práctica"
+        );
+        const filteredMaterials =
+          materialCategoryTab === "Teoría" ? theoryMaterials : practiceMaterials;
+
+        return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4 md:p-8">
           {/* Columna Izquierda: Lista de Materiales */}
           <div className="flex flex-col gap-4">
@@ -296,19 +329,46 @@ export function FileHub({ lessonId }: FileHubProps) {
               </p>
             </div>
 
+            {/* Sub-pestañas Teoría / Práctica */}
+            <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-[#13161c] border border-[#232a35]">
+              <button
+                type="button"
+                onClick={() => setMaterialCategoryTab("Teoría")}
+                className={`py-2 px-3 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 ${
+                  materialCategoryTab === "Teoría"
+                    ? "bg-cyan-500/20 text-cyan-200 border border-cyan-400/35"
+                    : "text-gray-400 hover:text-gray-200"
+                }`}
+              >
+                <span>Teoría ({theoryMaterials.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMaterialCategoryTab("Práctica")}
+                className={`py-2 px-3 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 ${
+                  materialCategoryTab === "Práctica"
+                    ? "bg-emerald-500/20 text-emerald-200 border border-emerald-400/35"
+                    : "text-gray-400 hover:text-gray-200"
+                }`}
+              >
+                <span>Práctica ({practiceMaterials.length})</span>
+              </button>
+            </div>
+
             {isLoading ? (
               <div className="py-8 flex items-center gap-2 text-xs text-gray-400">
                 <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
                 <span>Cargando documentos...</span>
               </div>
-            ) : materials.length === 0 ? (
+            ) : filteredMaterials.length === 0 ? (
               <div className="p-6 rounded-xl bg-[#13161c] border border-[#232a35] text-xs text-gray-500 text-center">
-                No hay documentos disponibles todavía.
+                No hay documentos registrados en {materialCategoryTab} todavía.
               </div>
             ) : (
               <div className="space-y-3">
-                {materials.map((item) => {
+                {filteredMaterials.map((item) => {
                   const { previewUrl, downloadUrl } = getDriveLinks(item.drive_url);
+                  const parsed = parseMaterialFileType(item.file_type);
                   const lessonLabel = item.lesson_id
                     ? item.lessons?.title || "Clase asignada"
                     : "Recurso General";
@@ -325,8 +385,17 @@ export function FileHub({ lessonId }: FileHubProps) {
                         <div className="min-w-0">
                           <p className="text-xs font-medium text-gray-200 truncate">{item.title}</p>
                           <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-gray-500">
+                            <span
+                              className={`px-1.5 py-0.5 rounded font-mono text-[10px] border ${
+                                parsed.category === "Práctica"
+                                  ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                                  : "bg-cyan-500/15 text-cyan-300 border-cyan-500/30"
+                              }`}
+                            >
+                              {parsed.category}
+                            </span>
                             <span className="px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-mono text-[10px]">
-                              {item.file_type}
+                              {parsed.fileType}
                             </span>
                             <span
                               className={`px-1.5 py-0.5 rounded text-[10px] font-mono border truncate max-w-[200px] ${
@@ -401,7 +470,7 @@ export function FileHub({ lessonId }: FileHubProps) {
                 </select>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="sm:col-span-2">
                   <label className="block text-[11px] font-mono text-gray-400 mb-1.5">
                     Título del Documento *
@@ -428,6 +497,24 @@ export function FileHub({ lessonId }: FileHubProps) {
                     {MATERIAL_TYPES.map((typeOption) => (
                       <option key={typeOption} value={typeOption}>
                         {typeOption}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-mono text-gray-400 mb-1.5">
+                    Categoría *
+                  </label>
+                  <select
+                    required
+                    value={materialCategory}
+                    onChange={(e) => setMaterialCategory(e.target.value as MaterialCategory)}
+                    className="w-full bg-[#1a1f26] border border-[#232a35] rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-indigo-500"
+                  >
+                    {MATERIAL_CATEGORIES.map((categoryOption) => (
+                      <option key={categoryOption} value={categoryOption}>
+                        {categoryOption}
                       </option>
                     ))}
                   </select>
@@ -488,7 +575,8 @@ export function FileHub({ lessonId }: FileHubProps) {
             </form>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* PESTAÑA 2: ENTREGAR PRÁCTICA (0 MB Storage - solo enlaces externos) */}
       {hubTab === "submissions" && (

@@ -20,6 +20,7 @@ import type { LessonItem, MaterialItem } from "@/lib/supabase/types";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { LessonChat } from "@/components/chat/lesson-chat";
 import { getDriveLinks } from "@/utils/driveHelpers";
+import { parseMaterialFileType } from "@/utils/materialCategory";
 import { useUserRole } from "@/components/providers/role-provider";
 
 interface LessonPageProps {
@@ -350,9 +351,20 @@ export default function LessonViewPage({ params }: LessonPageProps) {
                               <p className="text-xs font-medium text-gray-200 truncate">
                                 {mat.title}
                               </p>
-                              <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-mono text-indigo-300 uppercase">
-                                {mat.file_type}
-                              </span>
+                              <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                <span className="inline-block px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-mono text-indigo-300 uppercase">
+                                  {parseMaterialFileType(mat.file_type).fileType}
+                                </span>
+                                <span
+                                  className={`inline-block px-1.5 py-0.5 rounded border text-[10px] font-mono ${
+                                    parseMaterialFileType(mat.file_type).category === "Práctica"
+                                      ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
+                                      : "bg-cyan-500/15 border-cyan-500/30 text-cyan-300"
+                                  }`}
+                                >
+                                  {parseMaterialFileType(mat.file_type).category}
+                                </span>
+                              </div>
                             </div>
                           </div>
 
