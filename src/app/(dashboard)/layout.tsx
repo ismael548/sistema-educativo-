@@ -31,6 +31,7 @@ export default function DashboardLayout({
         />
         <main className="relative z-10 flex-1 p-3 sm:p-4 md:p-6 bg-transparent overflow-x-hidden max-w-full">
           {children}
+          <div></div>
         </main>
       </div>
     </div>
